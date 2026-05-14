@@ -1,0 +1,6 @@
+<Solution>
+  <Project Path="BookLendingApp.BALLibrary/BookLendingApp.BALLibrary.csproj" />
+  <Project Path="BookLendingApp.DALLibrary/BookLendingApp.DALLibrary.csproj" />
+  <Project Path="BookLendingApp.FEApplication/BookLendingApp.FEApplication.csproj" />
+  <Project Path="BookLendingApp.ModelLibrary/BookLendingApp.ModelLibrary.csproj" />
+</Solution>
