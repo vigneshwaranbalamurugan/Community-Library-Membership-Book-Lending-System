@@ -1,16 +1,41 @@
+using System.ComponentModel.DataAnnotations;
+
 namespace BookLendingApp.ModelLibrary.Models
 {
     public class Book
     {
-        public Guid BookId { get; set;}
-        public string Title { get; set; }
-        public string Author { get; set; }
-        public string ISBN { get; set; }
+        [Key]
+        public Guid BookId { get; set; }
+
+        [Required]
+        [StringLength(200)]
+        public required string Title { get; set; }
+
+        [Required]
+        [StringLength(200)]
+        public required string Author { get; set; }
+
+        [Required]
+        [StringLength(20)]
+        public required string ISBN { get; set; }
+
+        [Range(1, 9999)]
         public int PublicationYear { get; set; }
-        public string Publisher { get; set; }
+
+        [Required]
+        [StringLength(200)]
+        public required string Publisher { get; set; }
+
+        [Required]
         public Guid CategoryId { get; set; }
-        public DateTime CreatedAt { get; set; } = DateTime.Now;
-        public DateTime UpdatedAt { get; set; } = DateTime.Now;
+
+        public BookCategory? Category { get; set; }
+
+        public ICollection<BookCopy> BookCopies { get; set; } = new List<BookCopy>();
+
+        public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+
+        public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
 
     }
 }
