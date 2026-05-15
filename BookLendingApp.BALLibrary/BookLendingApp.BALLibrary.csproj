@@ -6,4 +6,9 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
 
+    <ItemGroup>
+    <ProjectReference Include="..\BookLendingApp.ModelLibrary\BookLendingApp.ModelLibrary.csproj" />
+    <ProjectReference Include="..\BookLendingApp.DALLibrary\BookLendingApp.DALLibrary.csproj" />
+  </ItemGroup>
+
 </Project>

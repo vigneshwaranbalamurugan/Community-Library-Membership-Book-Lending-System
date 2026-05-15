@@ -55,5 +55,13 @@ namespace BookLendingApp.DALLibrary.Repositories
                 throw new KeyNotFoundException($"Category with name '{name}' not found.");
             return category;
         }
+
+        public Guid GetCategoryIdByName(string name)
+        {
+            var category = _context.Categories.FirstOrDefault(c => c.Name == name);
+            if (category == null)
+                throw new KeyNotFoundException($"Category with name '{name}' not found.");
+            return category.CategoryId;
+        }
     }
 }

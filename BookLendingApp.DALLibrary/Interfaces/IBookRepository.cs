@@ -8,5 +8,7 @@ namespace BookLendingApp.DALLibrary.Interfaces
         List<Book> GetBooksByPublicationYear(int year);
         List<Book> GetBooksByCategory(Guid categoryId);
         List<Book> SearchBooks(string searchTerm);  
+
+        Book GetBookByISBN(string isbn);
     }
 }

@@ -80,5 +80,13 @@ namespace BookLendingApp.DALLibrary.Repositories
             _context.SaveChanges();
             return book;
         }
+
+        public Book GetBookByISBN(string isbn)
+        {
+            var book = _context.Books.FirstOrDefault(b => b.ISBN == isbn);
+            if (book == null)
+                throw new KeyNotFoundException($"Book with ISBN {isbn} not found.");
+            return book;
+        }
     }
 }
