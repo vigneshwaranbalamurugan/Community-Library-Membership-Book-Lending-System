@@ -19,5 +19,18 @@ namespace BookLendingApp.ModelLibrary.Models
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
         public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
+
+
+        public BookCategory()
+        {
+            
+        }
+
+        public BookCategory(string name, string? description = null)
+        {
+            CategoryId = Guid.NewGuid();
+            Name = name;
+            Description = description;
+        }
     }
 }

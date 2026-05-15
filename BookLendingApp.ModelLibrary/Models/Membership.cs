@@ -33,6 +33,23 @@ namespace BookLendingApp.ModelLibrary.Models
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
         public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
+
+        public MemberShip()
+        {
+            
+        }
+
+        public MemberShip(string name, int maxBooksAllowed, int maxBorrowDurationDays, bool isRenewalAllowed, int maxRenewalTimes, int maxRenewalDurationDays, decimal membershipFee)
+        {
+            MemberShipId = Guid.NewGuid();
+            Name = name;
+            MaxBooksAllowed = maxBooksAllowed;
+            MaxBorrowDurationDays = maxBorrowDurationDays;
+            IsRenewalAllowed = isRenewalAllowed;
+            MaxRenewalTimes = maxRenewalTimes;
+            MaxRenewalDurationDays = maxRenewalDurationDays;
+            MembershipFee = membershipFee;
+        }
     }
     
 }

@@ -32,5 +32,22 @@ namespace BookLendingApp.ModelLibrary.Models
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
         public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
+
+        public FineRule()
+        {
+            
+        }
+
+        public FineRule(FineType fineType, string name, FineCalculationType fineCalculationType, decimal amount, string? description = null, decimal? percentage = null)
+        {
+            FineAmountId = Guid.NewGuid();
+            FineType = fineType;
+            Name = name;
+            Description = description;
+            FineCalculationType = fineCalculationType;
+            Amount = amount;
+            Percentage = percentage;
+        }
     }
+    
 }

@@ -40,5 +40,20 @@ namespace BookLendingApp.ModelLibrary.Models
 
         public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
 
+        public Member()
+        {
+            
+        }
+
+        public Member(string fullName, string emailId, string password, Guid membershipId, string? mobileNumber = null)
+        {
+            MemberId = Guid.NewGuid();
+            FullName = fullName;
+            EmailId = emailId;
+            Password = password;
+            MembershipId = Guid.Parse(membershipId.ToString());
+            MobileNumber = mobileNumber;
+        }
+
     }
 }

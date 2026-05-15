@@ -35,5 +35,22 @@ namespace BookLendingApp.ModelLibrary.Models
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
         public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
+
+        public BookCopy()
+        {
+            
+        }
+
+        public BookCopy(Guid bookId, string barcode, string shelfLocation, BookStatus status = BookStatus.Available, decimal damagePercentage = 0, string? condition = null)
+        {
+            BookCopyId = Guid.NewGuid();
+            BookId = bookId;
+            Barcode = barcode;
+            ShelfLocation = shelfLocation;
+            Status = status;
+            DamagePercentage = damagePercentage;
+            Condition = condition;
+        }
+        
     }
 }
