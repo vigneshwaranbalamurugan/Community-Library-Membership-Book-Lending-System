@@ -2,10 +2,10 @@ using BookLendingApp.ModelLibrary.Models;
 using BookLendingApp.DALLibrary.Interfaces;
 using BookLendingApp.Ballibrary.Interfaces;
 
-namespace BookLendingApp.DallLibrary.Services
+namespace BookLendingApp.Ballibrary.Services
 {
 
-    public class BookService: IBookService
+    public class BookService : IBookService
     {
         private readonly IBookRepository _bookRepository;
         private readonly IBookCategoryRepository _bookCategoryRepository;
@@ -14,7 +14,7 @@ namespace BookLendingApp.DallLibrary.Services
             _bookRepository = bookRepository;
             _bookCategoryRepository = bookCategoryRepository;
         }
-        public void AddBook(string title, string author, int publicationYear, string publisher, string isbn, string categoryName)
+        public void AddBook(string title, string author, int publicationYear, string publisher, string categoryName, string isbn)
         {
             Book newBook = new Book
             {
@@ -23,7 +23,7 @@ namespace BookLendingApp.DallLibrary.Services
                 PublicationYear = publicationYear,
                 Publisher = publisher,
                 ISBN = isbn,
-                CategoryId = _bookCategoryRepository.GetCategoryIdByName(categoryName) 
+                CategoryId = _bookCategoryRepository.GetCategoryIdByName(categoryName)
             };
             _bookRepository.Create(newBook);
         }
