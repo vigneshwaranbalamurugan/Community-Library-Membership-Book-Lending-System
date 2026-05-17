@@ -19,6 +19,8 @@ namespace BookLendingApp.ModelLibrary.Models
         [Range(1, int.MaxValue)]
         public PaymentType PaymentType { get; set; }
 
+        public bool IsPaid { get; set; } = false;
+
         public DateTime PaymentDate { get; set; } = DateTime.UtcNow;
 
         public Member? Member { get; set; }
@@ -31,6 +33,7 @@ namespace BookLendingApp.ModelLibrary.Models
         public MembershipPayment()
         {
             PaymentType = PaymentType.MembershipFee;
+            IsPaid = true;
         }
     }
 
@@ -62,6 +65,7 @@ namespace BookLendingApp.ModelLibrary.Models
         public RenewalFeePayment()
         {
             PaymentType = PaymentType.RenewalFee;
+            IsPaid = true;
         }
     }
 
@@ -70,6 +74,7 @@ namespace BookLendingApp.ModelLibrary.Models
         public OtherPayment()
         {
             PaymentType = PaymentType.Other;
+            IsPaid = true;
         }
     }
 }
