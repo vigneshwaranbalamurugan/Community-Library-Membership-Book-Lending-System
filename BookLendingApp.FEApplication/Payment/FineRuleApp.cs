@@ -77,16 +77,30 @@ namespace BookLendingApp.Application.Payment
         private void UpdateFineRule()
         {
             var fineRuleId = PromptFineRuleSelection();
-            var fineType = ConsoleInputValidator.PromptEnumSelection<FineType>("Select a fine type:");
-            var name = ConsoleInputValidator.ReadRequiredString("Enter name:");
-            var calculationType = ConsoleInputValidator.PromptEnumSelection<FineCalculationType>("Select a calculation type:");
-            var amount = ConsoleInputValidator.ReadDecimal("Enter amount:", 0m);
-            var description = ConsoleInputValidator.ReadOptionalString("Enter description (optional):");
-            var percentage = ConsoleInputValidator.ReadOptionalString("Enter percentage (optional, leave blank if none):");
+            if (fineRuleId == Guid.Empty)
+            {
+                return;
+            }
+
+            var existing = _fineRuleService.GetFineRuleById(fineRuleId);
+            if (existing == null)
+            {
+                Console.WriteLine("Fine rule not found.");
+                return;
+            }
+
+            Console.WriteLine($"Current values: Type={existing.FineType}, Name={existing.Name}, CalcType={existing.FineCalculationType}, Amount={existing.Amount}, Description={existing.Description}, Percentage={existing.Percentage}");
+
+            var fineType = ConsoleInputValidator.PromptEnumSelectionWithDefault("Select a fine type", existing.FineType);
+            var name = ConsoleInputValidator.ReadRequiredStringWithDefault("Enter name", existing.Name);
+            var calculationType = ConsoleInputValidator.PromptEnumSelectionWithDefault("Select a calculation type", existing.FineCalculationType);
+            var amount = ConsoleInputValidator.ReadDecimalWithDefault("Enter amount", existing.Amount, 0m);
+            var description = ConsoleInputValidator.ReadOptionalStringWithDefault("Enter description (optional)", existing.Description);
+            var percentage = ConsoleInputValidator.ReadOptionalStringWithDefault("Enter percentage (optional, type '-' to clear)", existing.Percentage?.ToString());
             decimal? percentageValue = null;
             if (!string.IsNullOrWhiteSpace(percentage))
             {
-                percentageValue = decimal.Parse(percentage);
+                percentageValue = decimal.Parse(percentage, System.Globalization.CultureInfo.InvariantCulture);
             }
 
             _fineRuleService.UpdateFineRule(fineRuleId, fineType, name, calculationType, amount, description, percentageValue);

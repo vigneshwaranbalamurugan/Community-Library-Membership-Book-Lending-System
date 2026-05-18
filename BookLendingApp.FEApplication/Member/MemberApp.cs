@@ -98,18 +98,41 @@ namespace BookLendingApp.Application.Member
         private void UpdateMember()
         {
             var memberId = PromptMemberSelection();
-
-            var fullName = ConsoleInputValidator.ReadRequiredString("Enter full name:");
-            var email = ConsoleInputValidator.ReadEmail("Enter email:");
-            var password = ConsoleInputValidator.ReadRequiredString("Enter password:");
-            var membershipId = PromptMembershipSelection();
-            if (membershipId == Guid.Empty)
+            if (memberId == Guid.Empty)
             {
                 return;
             }
 
-            var isActive = ConsoleInputValidator.ReadYesNo("Is active?", defaultValue: true);
-            var mobile = ConsoleInputValidator.ReadOptionalMobileNumber("Enter mobile number (optional):");
+            var existingMember = _memberService.GetMemberById(memberId);
+            if (existingMember == null)
+            {
+                Console.WriteLine("Member not found.");
+                return;
+            }
+
+            Console.WriteLine($"Current values: Name={existingMember.FullName}, Email={existingMember.EmailId}, Mobile={existingMember.MobileNumber}, MembershipId={existingMember.MembershipId}, Active={existingMember.IsActive}");
+
+            var fullName = ConsoleInputValidator.ReadRequiredStringWithDefault("Enter full name", existingMember.FullName);
+            var email = ConsoleInputValidator.ReadEmailWithDefault("Enter email", existingMember.EmailId);
+
+            var password = existingMember.Password;
+            if (ConsoleInputValidator.ReadYesNo("Change password?", defaultValue: false))
+            {
+                password = ConsoleInputValidator.ReadRequiredString("Enter password:");
+            }
+
+            var membershipId = existingMember.MembershipId;
+            if (ConsoleInputValidator.ReadYesNo($"Change membership? Current is '{existingMember.MembershipId}'", defaultValue: false))
+            {
+                membershipId = PromptMembershipSelection();
+                if (membershipId == Guid.Empty)
+                {
+                    return;
+                }
+            }
+
+            var isActive = ConsoleInputValidator.ReadYesNo($"Is active? Current is {(existingMember.IsActive ? "Yes" : "No")}", defaultValue: existingMember.IsActive);
+            var mobile = ConsoleInputValidator.ReadOptionalMobileNumberWithDefault("Enter mobile number (optional)", existingMember.MobileNumber);
 
             try
             {
@@ -151,6 +174,21 @@ namespace BookLendingApp.Application.Member
             var memberId = PromptMemberSelection();
             if (memberId == Guid.Empty) return;
 
+            var member = _memberService.GetMemberById(memberId);
+            if (member == null)
+            {
+                Console.WriteLine("Member not found.");
+                return;
+            }
+
+            Console.WriteLine($"Current MembershipId: {member.MembershipId}");
+
+            if (!ConsoleInputValidator.ReadYesNo("Change membership?", defaultValue: false))
+            {
+                Console.WriteLine("No changes made.");
+                return;
+            }
+
             var membershipId = PromptMembershipSelection();
             if (membershipId == Guid.Empty)
             {
@@ -164,8 +202,19 @@ namespace BookLendingApp.Application.Member
         private void UpdateStatus()
         {
             var memberId = PromptMemberSelection();
+            if (memberId == Guid.Empty)
+            {
+                return;
+            }
 
-            var isActive = ConsoleInputValidator.ReadYesNo("Set member as active?", defaultValue: true);
+            var member = _memberService.GetMemberById(memberId);
+            if (member == null)
+            {
+                Console.WriteLine("Member not found.");
+                return;
+            }
+
+            var isActive = ConsoleInputValidator.ReadYesNo($"Set member as active? Current is {(member.IsActive ? "Yes" : "No")}", defaultValue: member.IsActive);
             var ok = _memberService.UpdateStatus(memberId, isActive);
             Console.WriteLine(ok ? "Status updated." : "Status update failed.");
         }

@@ -246,6 +246,51 @@ namespace BookLendingApp.Ballibrary.Services
             }
         }
 
+        public List<AvailableBookByCategory> GetAvailableBooksByCategory(Guid categoryId)
+        {
+            var books = new List<AvailableBookByCategory>();
+            var connection = _context.Database.GetDbConnection();
+            var openedHere = false;
+            if (connection.State != System.Data.ConnectionState.Open)
+            {
+                connection.Open();
+                openedHere = true;
+            }
+
+            try
+            {
+                using var command = connection.CreateCommand();
+                command.CommandText = "SELECT bookid, title, author, isbn, available_copies FROM get_available_books_by_category(@category_id)";
+
+                var parameter = command.CreateParameter();
+                parameter.ParameterName = "@category_id";
+                parameter.Value = categoryId;
+                command.Parameters.Add(parameter);
+
+                using var reader = command.ExecuteReader();
+                while (reader.Read())
+                {
+                    books.Add(new AvailableBookByCategory
+                    {
+                        BookId = reader["bookid"] == DBNull.Value ? Guid.Empty : (Guid)reader["bookid"],
+                        Title = reader["title"]?.ToString() ?? string.Empty,
+                        Author = reader["author"]?.ToString() ?? string.Empty,
+                        Isbn = reader["isbn"]?.ToString() ?? string.Empty,
+                        AvailableCopies = reader["available_copies"] == DBNull.Value ? 0L : Convert.ToInt64(reader["available_copies"])
+                    });
+                }
+
+                return books;
+            }
+            finally
+            {
+                if (openedHere)
+                {
+                    connection.Close();
+                }
+            }
+        }
+
         public List<BorrowRecord> GetActiveBorrowRecords(Guid memberId)
         {
             return _borrowRecordRepository.GetActiveBorrowRecordsByMember(memberId);

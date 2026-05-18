@@ -78,9 +78,22 @@ namespace BookLendingApp.Application.Book
 		private void UpdateCategory()
 		{
 			var id = PromptCategorySelection();
+			if (id == Guid.Empty)
+			{
+				return;
+			}
 
-			var name = ConsoleInputValidator.ReadRequiredString("Enter new name:");
-			var desc = ConsoleInputValidator.ReadOptionalString("Enter new description (optional):");
+			var existing = _bookCategoryService.GetCategoryById(id);
+			if (existing == null)
+			{
+				Console.WriteLine("Category not found.");
+				return;
+			}
+
+			Console.WriteLine($"Current values: Name={existing.Name}, Description={existing.Description}");
+
+			var name = ConsoleInputValidator.ReadRequiredStringWithDefault("Enter new name", existing.Name);
+			var desc = ConsoleInputValidator.ReadOptionalStringWithDefault("Enter new description (optional)", existing.Description);
 
 				try
 				{

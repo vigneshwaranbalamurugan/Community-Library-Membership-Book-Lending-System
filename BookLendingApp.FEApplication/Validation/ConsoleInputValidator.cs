@@ -31,11 +31,64 @@ namespace BookLendingApp.FEApplication.Validation
             return string.IsNullOrWhiteSpace(input) ? null : input.Trim();
         }
 
+        public static string ReadRequiredStringWithDefault(string prompt, string currentValue)
+        {
+            while (true)
+            {
+                Console.WriteLine($"{prompt} (current: {currentValue}) - press Enter to keep:");
+                var input = Console.ReadLine();
+                if (string.IsNullOrWhiteSpace(input))
+                {
+                    return currentValue;
+                }
+
+                try
+                {
+                    return ValidateRequiredString(input, prompt);
+                }
+                catch (InputValidationException ex)
+                {
+                    Console.WriteLine(ex.Message);
+                }
+            }
+        }
+
+        public static string? ReadOptionalStringWithDefault(string prompt, string? currentValue)
+        {
+            Console.WriteLine($"{prompt} (current: {currentValue ?? "<empty>"}) - press Enter to keep, type '-' to clear:");
+            var input = Console.ReadLine();
+            if (string.IsNullOrWhiteSpace(input))
+            {
+                return currentValue;
+            }
+
+            if (input.Trim() == "-")
+            {
+                return null;
+            }
+
+            return input.Trim();
+        }
+
         public static string ReadEmail(string prompt)
         {
             while (true)
             {
                 var email = ReadRequiredString(prompt);
+                if (EmailRegex.IsMatch(email))
+                {
+                    return email;
+                }
+
+                Console.WriteLine("Enter a valid email format, for example: user@example.com");
+            }
+        }
+
+        public static string ReadEmailWithDefault(string prompt, string currentValue)
+        {
+            while (true)
+            {
+                var email = ReadRequiredStringWithDefault(prompt, currentValue);
                 if (EmailRegex.IsMatch(email))
                 {
                     return email;
@@ -64,6 +117,25 @@ namespace BookLendingApp.FEApplication.Validation
             while (true)
             {
                 var mobile = ReadOptionalString(prompt);
+                if (string.IsNullOrWhiteSpace(mobile))
+                {
+                    return null;
+                }
+
+                if (TryNormalizeMobileNumber(mobile, out var normalized))
+                {
+                    return normalized;
+                }
+
+                Console.WriteLine("Enter a valid mobile number (10 to 15 digits, optional leading +). Example: +919876543210");
+            }
+        }
+
+        public static string? ReadOptionalMobileNumberWithDefault(string prompt, string? currentValue)
+        {
+            while (true)
+            {
+                var mobile = ReadOptionalStringWithDefault(prompt, currentValue);
                 if (string.IsNullOrWhiteSpace(mobile))
                 {
                     return null;
@@ -111,6 +183,28 @@ namespace BookLendingApp.FEApplication.Validation
             }
         }
 
+        public static int ReadIntWithDefault(string prompt, int currentValue, int? minValue = null, int? maxValue = null)
+        {
+            while (true)
+            {
+                Console.WriteLine($"{prompt} (current: {currentValue}) - press Enter to keep:");
+                var input = Console.ReadLine();
+                if (string.IsNullOrWhiteSpace(input))
+                {
+                    return currentValue;
+                }
+
+                try
+                {
+                    return ValidateInt(input, prompt, minValue, maxValue);
+                }
+                catch (InputValidationException ex)
+                {
+                    Console.WriteLine(ex.Message);
+                }
+            }
+        }
+
         public static decimal ReadDecimal(string prompt, decimal? minValue = null, decimal? maxValue = null)
         {
             while (true)
@@ -119,6 +213,28 @@ namespace BookLendingApp.FEApplication.Validation
                 try
                 {
                     return ValidateDecimal(Console.ReadLine(), prompt, minValue, maxValue);
+                }
+                catch (InputValidationException ex)
+                {
+                    Console.WriteLine(ex.Message);
+                }
+            }
+        }
+
+        public static decimal ReadDecimalWithDefault(string prompt, decimal currentValue, decimal? minValue = null, decimal? maxValue = null)
+        {
+            while (true)
+            {
+                Console.WriteLine($"{prompt} (current: {currentValue}) - press Enter to keep:");
+                var input = Console.ReadLine();
+                if (string.IsNullOrWhiteSpace(input))
+                {
+                    return currentValue;
+                }
+
+                try
+                {
+                    return ValidateDecimal(input, prompt, minValue, maxValue);
                 }
                 catch (InputValidationException ex)
                 {
@@ -238,6 +354,34 @@ namespace BookLendingApp.FEApplication.Validation
             {
                 Console.WriteLine("Enter choice number:");
                 var input = Console.ReadLine();
+                if (int.TryParse(input, NumberStyles.Integer, CultureInfo.InvariantCulture, out var selection) && selection >= 1 && selection <= values.Length)
+                {
+                    return values[selection - 1];
+                }
+
+                Console.WriteLine("Invalid selection.");
+            }
+        }
+
+        public static TEnum PromptEnumSelectionWithDefault<TEnum>(string title, TEnum currentValue) where TEnum : struct, Enum
+        {
+            var values = Enum.GetValues<TEnum>();
+            Console.WriteLine($"{title} (current: {currentValue}) - press Enter to keep:");
+
+            for (var index = 0; index < values.Length; index++)
+            {
+                Console.WriteLine($"{index + 1}. {values[index]}");
+            }
+
+            while (true)
+            {
+                Console.WriteLine("Enter choice number:");
+                var input = Console.ReadLine();
+                if (string.IsNullOrWhiteSpace(input))
+                {
+                    return currentValue;
+                }
+
                 if (int.TryParse(input, NumberStyles.Integer, CultureInfo.InvariantCulture, out var selection) && selection >= 1 && selection <= values.Length)
                 {
                     return values[selection - 1];

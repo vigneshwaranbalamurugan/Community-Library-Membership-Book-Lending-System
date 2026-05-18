@@ -31,16 +31,18 @@ namespace BookLendingApp.Application.Borrow
             {
                 Console.WriteLine("Borrow Menu:");
                 Console.WriteLine("1. Borrow Book");
-                Console.WriteLine("2. My Borrowing Summary");
-                Console.WriteLine("3. Back");
+                Console.WriteLine("2. Borrow by Category");
+                Console.WriteLine("3. My Borrowing Summary");
+                Console.WriteLine("4. Back");
 
-                var choice = ConsoleInputValidator.ReadInt("Select an option:", 1, 3);
+                var choice = ConsoleInputValidator.ReadInt("Select an option:", 1, 4);
 
                 switch (choice)
                 {
                     case 1: BorrowBook(); break;
-                    case 2: MemberSummary(); break;
-                    case 3: return;
+                    case 2: BorrowBookByCategory(); break;
+                    case 3: MemberSummary(); break;
+                    case 4: return;
                     default: Console.WriteLine("Invalid choice."); break;
                 }
             }
@@ -73,6 +75,57 @@ namespace BookLendingApp.Application.Borrow
             Console.WriteLine($"Active borrows: {summary.ActiveBorrows}");
             Console.WriteLine($"Returned borrows: {summary.ReturnedBorrows}");
             Console.WriteLine($"Unpaid fine: ₹{summary.TotalUnpaidFine}");
+        }
+
+        private void BorrowBookByCategory()
+        {
+            if (!TryGetCurrentMember(out var member)) return;
+
+            var categories = _bookCategoryService.GetAllCategories() ?? new List<BookCategory>();
+            if (categories.Count == 0)
+            {
+                Console.WriteLine("No categories found.");
+                return;
+            }
+
+            var selectedCategory = ConsoleInputValidator.PromptSelection(
+                "Select a category:",
+                categories,
+                category => category.Name);
+
+            var availableBooks = _borrowingService.GetAvailableBooksByCategory(selectedCategory.CategoryId);
+            if (availableBooks.Count == 0)
+            {
+                Console.WriteLine("No available books found for this category.");
+                return;
+            }
+
+            var selectedBook = ConsoleInputValidator.PromptSelection(
+                "Select a book:",
+                availableBooks,
+                book => $"{book.Title} | {book.Author} | ISBN: {book.Isbn} | Available copies: {book.AvailableCopies}");
+
+            var availableCopies = _bookCopyService.GetAvailableCopiesByBookId(selectedBook.BookId) ?? new List<BookCopy>();
+            if (availableCopies.Count == 0)
+            {
+                Console.WriteLine("No available copies found for this book.");
+                return;
+            }
+
+            var selectedCopy = ConsoleInputValidator.PromptSelection(
+                "Select a copy:",
+                availableCopies,
+                copy => $"Barcode: {copy.Barcode} | Shelf: {copy.ShelfLocation}");
+
+            try
+            {
+                var borrow = _borrowingService.BorrowBook(member.MemberId, selectedCopy.BookCopyId);
+                Console.WriteLine($"Borrowed. BorrowRecordId: {borrow.BorrowRecordId}");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Borrow failed: {ex.Message}");
+            }
         }
 
         private Guid PromptAvailableBookCopySelection()

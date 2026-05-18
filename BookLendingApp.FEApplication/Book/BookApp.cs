@@ -96,17 +96,34 @@ namespace BookLendingApp.Application.Book
         {
             var isbn = ConsoleInputValidator.ReadRequiredString("Enter ISBN of the book to update:");
 
-            var newTitle = ConsoleInputValidator.ReadRequiredString("Enter new title:");
+            var books = _bookService.GetAllBooks() ?? new System.Collections.Generic.List<BookLendingApp.ModelLibrary.Models.Book>();
+            var existingBook = books.FirstOrDefault(book => book.ISBN.Equals(isbn, StringComparison.OrdinalIgnoreCase));
+            if (existingBook == null)
+            {
+                Console.WriteLine("Book not found for the given ISBN.");
+                return;
+            }
 
-            var newAuthor = ConsoleInputValidator.ReadRequiredString("Enter new author:");
+            var currentCategory = _bookCategoryService.GetCategoryById(existingBook.CategoryId);
+            var currentCategoryName = currentCategory?.Name ?? string.Empty;
 
-            var newPublicationYear = ConsoleInputValidator.ReadInt("Enter new publication year:", 1, 9999);
+            Console.WriteLine($"Current values: Title={existingBook.Title}, Author={existingBook.Author}, Year={existingBook.PublicationYear}, Publisher={existingBook.Publisher}, Category={currentCategoryName}");
 
-            var newPublisher = ConsoleInputValidator.ReadRequiredString("Enter new publisher:");
+            var newTitle = ConsoleInputValidator.ReadRequiredStringWithDefault("Enter new title", existingBook.Title);
 
-            var newCategoryId = PromptCategorySelection();
-            if (newCategoryId == Guid.Empty) return;
-            var newCategoryName = _bookCategoryService.GetCategoryById(newCategoryId)?.Name ?? ConsoleInputValidator.ReadRequiredString("Enter new category name:");
+            var newAuthor = ConsoleInputValidator.ReadRequiredStringWithDefault("Enter new author", existingBook.Author);
+
+            var newPublicationYear = ConsoleInputValidator.ReadIntWithDefault("Enter new publication year", existingBook.PublicationYear, 1, 9999);
+
+            var newPublisher = ConsoleInputValidator.ReadRequiredStringWithDefault("Enter new publisher", existingBook.Publisher);
+
+            var newCategoryName = currentCategoryName;
+            if (ConsoleInputValidator.ReadYesNo($"Change category? Current is '{currentCategoryName}'", defaultValue: false))
+            {
+                var newCategoryId = PromptCategorySelection();
+                if (newCategoryId == Guid.Empty) return;
+                newCategoryName = _bookCategoryService.GetCategoryById(newCategoryId)?.Name ?? currentCategoryName;
+            }
 
             try
             {

@@ -85,14 +85,30 @@ namespace BookLendingApp.Application.Borrow
             var bookCopyId = PromptBookCopySelection();
             if (bookCopyId == Guid.Empty) return;
 
-            var bookId = PromptBookSelection();
-            if (bookId == Guid.Empty) return;
+            var existingCopy = _bookCopyService.GetBookCopyById(bookCopyId);
+            if (existingCopy == null)
+            {
+                Console.WriteLine("Book copy not found.");
+                return;
+            }
 
-            var barcode = ConsoleInputValidator.ReadRequiredString("Enter barcode:");
-            var shelfLocation = ConsoleInputValidator.ReadRequiredString("Enter shelf location:");
-            var status = ConsoleInputValidator.PromptEnumSelection<BookStatus>("Select a status:");
-            var damagePercentage = ConsoleInputValidator.ReadDecimal("Enter damage percentage:", 0m, 100m);
-            var condition = ConsoleInputValidator.ReadOptionalString("Enter condition (optional):");
+            var books = _bookService.GetAllBooks() ?? new System.Collections.Generic.List<BookLendingApp.ModelLibrary.Models.Book>();
+            var titleMap = books.ToDictionary(book => book.BookId, book => book.Title);
+            var currentBookTitle = titleMap.TryGetValue(existingCopy.BookId, out var currentTitle) ? currentTitle : existingCopy.BookId.ToString();
+            Console.WriteLine($"Current values: Book={currentBookTitle}, Barcode={existingCopy.Barcode}, Shelf={existingCopy.ShelfLocation}, Status={existingCopy.Status}, Damage={existingCopy.DamagePercentage}, Condition={existingCopy.Condition}");
+
+            var bookId = existingCopy.BookId;
+            if (ConsoleInputValidator.ReadYesNo($"Change book? Current is '{currentBookTitle}'", defaultValue: false))
+            {
+                bookId = PromptBookSelection();
+                if (bookId == Guid.Empty) return;
+            }
+
+            var barcode = ConsoleInputValidator.ReadRequiredStringWithDefault("Enter barcode", existingCopy.Barcode);
+            var shelfLocation = ConsoleInputValidator.ReadRequiredStringWithDefault("Enter shelf location", existingCopy.ShelfLocation);
+            var status = ConsoleInputValidator.PromptEnumSelectionWithDefault("Select a status", existingCopy.Status);
+            var damagePercentage = ConsoleInputValidator.ReadDecimalWithDefault("Enter damage percentage", existingCopy.DamagePercentage, 0m, 100m);
+            var condition = ConsoleInputValidator.ReadOptionalStringWithDefault("Enter condition (optional)", existingCopy.Condition);
 
             _bookCopyService.UpdateBookCopy(bookCopyId, bookId, barcode, shelfLocation, status, damagePercentage, condition);
             Console.WriteLine("Book copy updated.");

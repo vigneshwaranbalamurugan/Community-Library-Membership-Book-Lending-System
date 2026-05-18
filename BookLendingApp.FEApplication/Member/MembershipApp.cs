@@ -77,13 +77,22 @@ namespace BookLendingApp.Application.Member
             var membershipId = PromptMembershipSelection();
             if (membershipId == Guid.Empty) return;
 
-            var name = ConsoleInputValidator.ReadRequiredString("Enter name:");
-            var maxBooks = ConsoleInputValidator.ReadInt("Enter max books allowed:", 0);
-            var maxBorrowDays = ConsoleInputValidator.ReadInt("Enter max borrow duration days:", 0);
-            var isRenewalAllowed = ConsoleInputValidator.ReadYesNo("Is renewal allowed?", defaultValue: false);
-            var maxRenewalTimes = ConsoleInputValidator.ReadInt("Enter max renewal times:", 0);
-            var maxRenewalDays = ConsoleInputValidator.ReadInt("Enter max renewal duration days:", 0);
-            var fee = ConsoleInputValidator.ReadDecimal("Enter membership fee:", 0m);
+            var existing = _membershipService.GetMembershipById(membershipId);
+            if (existing == null)
+            {
+                Console.WriteLine("Membership not found.");
+                return;
+            }
+
+            Console.WriteLine($"Current values: Name={existing.Name}, MaxBooks={existing.MaxBooksAllowed}, BorrowDays={existing.MaxBorrowDurationDays}, RenewalAllowed={existing.IsRenewalAllowed}, RenewalTimes={existing.MaxRenewalTimes}, RenewalDays={existing.MaxRenewalDurationDays}, Fee={existing.MembershipFee}");
+
+            var name = ConsoleInputValidator.ReadRequiredStringWithDefault("Enter name", existing.Name);
+            var maxBooks = ConsoleInputValidator.ReadIntWithDefault("Enter max books allowed", existing.MaxBooksAllowed, 0);
+            var maxBorrowDays = ConsoleInputValidator.ReadIntWithDefault("Enter max borrow duration days", existing.MaxBorrowDurationDays, 0);
+            var isRenewalAllowed = ConsoleInputValidator.ReadYesNo($"Is renewal allowed? Current is {(existing.IsRenewalAllowed ? "Yes" : "No")}", defaultValue: existing.IsRenewalAllowed);
+            var maxRenewalTimes = ConsoleInputValidator.ReadIntWithDefault("Enter max renewal times", existing.MaxRenewalTimes, 0);
+            var maxRenewalDays = ConsoleInputValidator.ReadIntWithDefault("Enter max renewal duration days", existing.MaxRenewalDurationDays, 0);
+            var fee = ConsoleInputValidator.ReadDecimalWithDefault("Enter membership fee", existing.MembershipFee, 0m);
 
             _membershipService.UpdateMembership(membershipId, name, maxBooks, maxBorrowDays, isRenewalAllowed, maxRenewalTimes, maxRenewalDays, fee);
             Console.WriteLine("Membership updated.");
@@ -101,7 +110,14 @@ namespace BookLendingApp.Application.Member
         {
             var membershipId = PromptMembershipSelection();
             if (membershipId == Guid.Empty) return;
-            var maxBooks = ConsoleInputValidator.ReadInt("Enter new max books:", 0);
+            var existing = _membershipService.GetMembershipById(membershipId);
+            if (existing == null)
+            {
+                Console.WriteLine("Membership not found.");
+                return;
+            }
+
+            var maxBooks = ConsoleInputValidator.ReadIntWithDefault("Enter new max books", existing.MaxBooksAllowed, 0);
             Console.WriteLine(_membershipService.UpdateMembershipMaxBooks(membershipId, maxBooks) ? "Updated." : "Update failed.");
         }
 
@@ -109,7 +125,14 @@ namespace BookLendingApp.Application.Member
         {
             var membershipId = PromptMembershipSelection();
             if (membershipId == Guid.Empty) return;
-            var duration = ConsoleInputValidator.ReadInt("Enter new duration days:", 0);
+            var existing = _membershipService.GetMembershipById(membershipId);
+            if (existing == null)
+            {
+                Console.WriteLine("Membership not found.");
+                return;
+            }
+
+            var duration = ConsoleInputValidator.ReadIntWithDefault("Enter new duration days", existing.MaxBorrowDurationDays, 0);
             Console.WriteLine(_membershipService.UpdateMembershipDuration(membershipId, duration) ? "Updated." : "Update failed.");
         }
 

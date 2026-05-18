@@ -7,6 +7,7 @@ namespace BookLendingApp.Ballibrary.Interfaces
         BorrowRecord BorrowBook(Guid memberId, Guid bookCopyId);
         BorrowRecord ReturnBook(Guid borrowRecordId, DateTime returnDate, decimal damagePercentage = 0);
         BorrowRecord RenewBorrow(Guid borrowRecordId);
+        List<AvailableBookByCategory> GetAvailableBooksByCategory(Guid categoryId);
         MemberBorrowingSummary GetMemberBorrowingSummary(Guid memberId);
         decimal GetUnpaidFine(Guid memberId);
         List<BorrowRecord> GetActiveBorrowRecords(Guid memberId);
