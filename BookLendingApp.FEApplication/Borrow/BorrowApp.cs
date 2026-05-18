@@ -1,15 +1,28 @@
 using System;
 using BookLendingApp.Ballibrary.Interfaces;
+using BookLendingApp.ModelLibrary.Enums;
+using BookLendingApp.ModelLibrary.Models;
+using BookLendingApp.FEApplication.Security;
+using BookLendingApp.FEApplication.Validation;
+using ModelMember = BookLendingApp.ModelLibrary.Models.Member;
 
 namespace BookLendingApp.Application.Borrow
 {
     public class BorrowApp
     {
         private readonly IBorrowingService _borrowingService;
+        private readonly IBookCopyService _bookCopyService;
+        private readonly IBookService _bookService;
+        private readonly IBookCategoryService _bookCategoryService;
+        private readonly AppSession _session;
 
-        public BorrowApp(IBorrowingService borrowingService)
+        public BorrowApp(IBorrowingService borrowingService, IBookCopyService bookCopyService, IBookService bookService, IBookCategoryService bookCategoryService, AppSession session)
         {
             _borrowingService = borrowingService;
+            _bookCopyService = bookCopyService;
+            _bookService = bookService;
+            _bookCategoryService = bookCategoryService;
+            _session = session;
         }
 
         public void BorrowMenu()
@@ -18,20 +31,16 @@ namespace BookLendingApp.Application.Borrow
             {
                 Console.WriteLine("Borrow Menu:");
                 Console.WriteLine("1. Borrow Book");
-                Console.WriteLine("2. Return Book");
-                Console.WriteLine("3. Renew Book");
-                Console.WriteLine("4. Member Borrowing Summary");
-                Console.WriteLine("5. Overdue Books");
-                Console.WriteLine("6. Back");
+                Console.WriteLine("2. My Borrowing Summary");
+                Console.WriteLine("3. Back");
 
-                switch (Console.ReadLine())
+                var choice = ConsoleInputValidator.ReadInt("Select an option:", 1, 3);
+
+                switch (choice)
                 {
-                    case "1": BorrowBook(); break;
-                    case "2": ReturnBook(); break;
-                    case "3": RenewBook(); break;
-                    case "4": MemberSummary(); break;
-                    case "5": OverdueBooks(); break;
-                    case "6": return;
+                    case 1: BorrowBook(); break;
+                    case 2: MemberSummary(); break;
+                    case 3: return;
                     default: Console.WriteLine("Invalid choice."); break;
                 }
             }
@@ -39,14 +48,14 @@ namespace BookLendingApp.Application.Borrow
 
         private void BorrowBook()
         {
-            Console.WriteLine("Enter member id:");
-            if (!Guid.TryParse(Console.ReadLine(), out var memberId)) return;
-            Console.WriteLine("Enter book copy id:");
-            if (!Guid.TryParse(Console.ReadLine(), out var bookCopyId)) return;
+            if (!TryGetCurrentMember(out var member)) return;
+
+            var bookCopyId = PromptAvailableBookCopySelection();
+            if (bookCopyId == Guid.Empty) return;
 
             try
             {
-                var borrow = _borrowingService.BorrowBook(memberId, bookCopyId);
+                var borrow = _borrowingService.BorrowBook(member.MemberId, bookCopyId);
                 Console.WriteLine($"Borrowed. BorrowRecordId: {borrow.BorrowRecordId}");
             }
             catch (Exception ex)
@@ -55,56 +64,61 @@ namespace BookLendingApp.Application.Borrow
             }
         }
 
-        private void ReturnBook()
-        {
-            Console.WriteLine("Enter borrow record id:");
-            if (!Guid.TryParse(Console.ReadLine(), out var borrowRecordId)) return;
-            Console.WriteLine("Enter return date (yyyy-MM-dd), or leave blank for today:");
-            var dateInput = Console.ReadLine();
-            var returnDate = string.IsNullOrWhiteSpace(dateInput) ? DateTime.UtcNow : DateTime.Parse(dateInput);
-
-            try
-            {
-                _borrowingService.ReturnBook(borrowRecordId, returnDate);
-                Console.WriteLine("Returned successfully.");
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Return failed: {ex.Message}");
-            }
-        }
-
-        private void RenewBook()
-        {
-            Console.WriteLine("Enter borrow record id:");
-            if (!Guid.TryParse(Console.ReadLine(), out var borrowRecordId)) return;
-
-            try
-            {
-                _borrowingService.RenewBorrow(borrowRecordId);
-                Console.WriteLine("Renewed successfully.");
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Renew failed: {ex.Message}");
-            }
-        }
 
         private void MemberSummary()
         {
-            Console.WriteLine("Enter member id:");
-            if (!Guid.TryParse(Console.ReadLine(), out var memberId)) return;
-            var activeBorrows = _borrowingService.GetActiveBorrowRecords(memberId);
-            Console.WriteLine($"Active borrows: {activeBorrows.Count}");
-            Console.WriteLine($"Unpaid fine: ₹{_borrowingService.GetUnpaidFine(memberId)}");
+            if (!TryGetCurrentMember(out var member)) return;
+
+            var summary = _borrowingService.GetMemberBorrowingSummary(member.MemberId);
+            Console.WriteLine($"Active borrows: {summary.ActiveBorrows}");
+            Console.WriteLine($"Returned borrows: {summary.ReturnedBorrows}");
+            Console.WriteLine($"Unpaid fine: ₹{summary.TotalUnpaidFine}");
         }
 
-        private void OverdueBooks()
+        private Guid PromptAvailableBookCopySelection()
         {
-            foreach (var record in _borrowingService.GetOverdueBorrowRecords())
+            var copies = (_bookCopyService.GetAllBookCopies() ?? new System.Collections.Generic.List<BookLendingApp.ModelLibrary.Models.BookCopy>())
+                .Where(copy => copy.Status == BookStatus.Available || copy.Status == BookStatus.Damaged)
+                .ToList();
+
+            var books = _bookService.GetAllBooks() ?? new System.Collections.Generic.List<BookLendingApp.ModelLibrary.Models.Book>();
+            var bookMap = books.ToDictionary(b => b.BookId, b => b);
+            var categories = _bookCategoryService.GetAllCategories() ?? new System.Collections.Generic.List<BookLendingApp.ModelLibrary.Models.BookCategory>();
+            var categoryMap = categories.ToDictionary(c => c.CategoryId, c => c.Name);
+
+            if (copies.Count == 0)
             {
-                Console.WriteLine($"BorrowRecordId: {record.BorrowRecordId} | MemberId: {record.MemberId} | BookCopyId: {record.BookCopyId}");
+                Console.WriteLine("No available book copies found.");
+                return Guid.Empty;
             }
+
+            var selected = ConsoleInputValidator.PromptSelection(
+                "Select a book copy:",
+                copies,
+                copy =>
+                {
+                    var book = bookMap.TryGetValue(copy.BookId, out var b) ? b : copy.Book;
+                    var title = book?.Title ?? copy.BookId.ToString();
+                    var author = book?.Author ?? "";
+                    var categoryName = (book != null && book.CategoryId != Guid.Empty && categoryMap.TryGetValue(book.CategoryId, out var cn)) ? cn : string.Empty;
+                    var statusDisplay = copy.Status == BookStatus.Available ? "[Available]" : $"[Damaged: {copy.DamagePercentage}%]";
+                    return $"Title: {title} | Author: {author} | Category: {categoryName} | Barcode: {copy.Barcode} | {statusDisplay}";
+                });
+
+            return selected.BookCopyId;
+        }
+
+
+        private bool TryGetCurrentMember(out ModelMember member)
+        {
+            member = _session.CurrentMember!;
+            if (_session.IsMember && member != null)
+            {
+                return true;
+            }
+
+            Console.WriteLine("Please sign in as a user to access borrowing features.");
+            return false;
         }
     }
 }

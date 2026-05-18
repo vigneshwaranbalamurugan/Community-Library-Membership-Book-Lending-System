@@ -1,15 +1,18 @@
 using System;
 using BookLendingApp.Ballibrary.Interfaces;
 using BookLendingApp.ModelLibrary.Enums;
+using BookLendingApp.FEApplication.Validation;
 
 namespace BookLendingApp.Application.Borrow
 {
     public class BookCopyApp
     {
+        private readonly IBookService _bookService;
         private readonly IBookCopyService _bookCopyService;
 
-        public BookCopyApp(IBookCopyService bookCopyService)
+        public BookCopyApp(IBookService bookService, IBookCopyService bookCopyService)
         {
+            _bookService = bookService;
             _bookCopyService = bookCopyService;
         }
 
@@ -28,17 +31,19 @@ namespace BookLendingApp.Application.Borrow
                 Console.WriteLine("8. Search By Condition");
                 Console.WriteLine("9. Back");
 
-                switch (Console.ReadLine())
+                var choice = ConsoleInputValidator.ReadInt("Select an option:", 1, 9);
+
+                switch (choice)
                 {
-                    case "1": AddBookCopy(); break;
-                    case "2": ViewBookCopies(); break;
-                    case "3": UpdateBookCopy(); break;
-                    case "4": DeleteBookCopy(); break;
-                    case "5": ViewByBookId(); break;
-                    case "6": ViewAvailableByBookId(); break;
-                    case "7": SearchByStatus(); break;
-                    case "8": SearchByCondition(); break;
-                    case "9": return;
+                    case 1: AddBookCopy(); break;
+                    case 2: ViewBookCopies(); break;
+                    case 3: UpdateBookCopy(); break;
+                    case 4: DeleteBookCopy(); break;
+                    case 5: ViewByBookId(); break;
+                    case 6: ViewAvailableByBookId(); break;
+                    case 7: SearchByStatus(); break;
+                    case 8: SearchByCondition(); break;
+                    case 9: return;
                     default: Console.WriteLine("Invalid choice."); break;
                 }
             }
@@ -46,18 +51,14 @@ namespace BookLendingApp.Application.Borrow
 
         private void AddBookCopy()
         {
-            Console.WriteLine("Enter book id:");
-            if (!Guid.TryParse(Console.ReadLine(), out var bookId)) return;
-            Console.WriteLine("Enter barcode:");
-            var barcode = Console.ReadLine() ?? string.Empty;
-            Console.WriteLine("Enter shelf location:");
-            var shelfLocation = Console.ReadLine() ?? string.Empty;
-            Console.WriteLine("Enter status (Available/Borrowed/Lost/Reserved):");
-            Enum.TryParse(Console.ReadLine(), true, out BookStatus status);
-            Console.WriteLine("Enter damage percentage:");
-            decimal.TryParse(Console.ReadLine(), out var damagePercentage);
-            Console.WriteLine("Enter condition (optional):");
-            var condition = Console.ReadLine();
+            var bookId = PromptBookSelection();
+            if (bookId == Guid.Empty) return;
+
+            var barcode = ConsoleInputValidator.ReadRequiredString("Enter barcode:");
+            var shelfLocation = ConsoleInputValidator.ReadRequiredString("Enter shelf location:");
+            var status = ConsoleInputValidator.PromptEnumSelection<BookStatus>("Select a status:");
+            var damagePercentage = ConsoleInputValidator.ReadDecimal("Enter damage percentage:", 0m, 100m);
+            var condition = ConsoleInputValidator.ReadOptionalString("Enter condition (optional):");
 
             _bookCopyService.AddBookCopy(bookId, barcode, shelfLocation, status, damagePercentage, condition);
             Console.WriteLine("Book copy added.");
@@ -65,29 +66,33 @@ namespace BookLendingApp.Application.Borrow
 
         private void ViewBookCopies()
         {
-            var copies = _bookCopyService.GetAllBookCopies();
+            var copies = _bookCopyService.GetAllBookCopies() ?? new System.Collections.Generic.List<BookLendingApp.ModelLibrary.Models.BookCopy>();
+            if (copies.Count == 0)
+            {
+                Console.WriteLine("No book copies found.");
+                return;
+            }
+
             foreach (var copy in copies)
             {
-                Console.WriteLine($"ID: {copy.BookCopyId} | BookId: {copy.BookId} | Barcode: {copy.Barcode} | Shelf: {copy.ShelfLocation} | Status: {copy.Status} | Condition: {copy.Condition}");
+                var title = copy.Book?.Title ?? copy.BookId.ToString();
+                Console.WriteLine($"Book: {title} | Barcode: {copy.Barcode} | Shelf: {copy.ShelfLocation} | Status: {copy.Status} | Condition: {copy.Condition}");
             }
         }
 
         private void UpdateBookCopy()
         {
-            Console.WriteLine("Enter book copy id:");
-            if (!Guid.TryParse(Console.ReadLine(), out var bookCopyId)) return;
-            Console.WriteLine("Enter book id:");
-            if (!Guid.TryParse(Console.ReadLine(), out var bookId)) return;
-            Console.WriteLine("Enter barcode:");
-            var barcode = Console.ReadLine() ?? string.Empty;
-            Console.WriteLine("Enter shelf location:");
-            var shelfLocation = Console.ReadLine() ?? string.Empty;
-            Console.WriteLine("Enter status (Available/Borrowed/Lost/Reserved):");
-            Enum.TryParse(Console.ReadLine(), true, out BookStatus status);
-            Console.WriteLine("Enter damage percentage:");
-            decimal.TryParse(Console.ReadLine(), out var damagePercentage);
-            Console.WriteLine("Enter condition (optional):");
-            var condition = Console.ReadLine();
+            var bookCopyId = PromptBookCopySelection();
+            if (bookCopyId == Guid.Empty) return;
+
+            var bookId = PromptBookSelection();
+            if (bookId == Guid.Empty) return;
+
+            var barcode = ConsoleInputValidator.ReadRequiredString("Enter barcode:");
+            var shelfLocation = ConsoleInputValidator.ReadRequiredString("Enter shelf location:");
+            var status = ConsoleInputValidator.PromptEnumSelection<BookStatus>("Select a status:");
+            var damagePercentage = ConsoleInputValidator.ReadDecimal("Enter damage percentage:", 0m, 100m);
+            var condition = ConsoleInputValidator.ReadOptionalString("Enter condition (optional):");
 
             _bookCopyService.UpdateBookCopy(bookCopyId, bookId, barcode, shelfLocation, status, damagePercentage, condition);
             Console.WriteLine("Book copy updated.");
@@ -95,17 +100,25 @@ namespace BookLendingApp.Application.Borrow
 
         private void DeleteBookCopy()
         {
-            Console.WriteLine("Enter book copy id:");
-            if (!Guid.TryParse(Console.ReadLine(), out var bookCopyId)) return;
+            var bookCopyId = PromptBookCopySelection();
+            if (bookCopyId == Guid.Empty) return;
+
             _bookCopyService.RemoveBookCopy(bookCopyId);
             Console.WriteLine("Book copy deleted.");
         }
 
         private void ViewByBookId()
         {
-            Console.WriteLine("Enter book id:");
-            if (!Guid.TryParse(Console.ReadLine(), out var bookId)) return;
-            foreach (var copy in _bookCopyService.GetCopiesByBookId(bookId))
+            var bookId = PromptBookSelection();
+            if (bookId == Guid.Empty) return;
+            var copies = _bookCopyService.GetCopiesByBookId(bookId) ?? new System.Collections.Generic.List<BookLendingApp.ModelLibrary.Models.BookCopy>();
+            if (copies.Count == 0)
+            {
+                Console.WriteLine("No copies found for the selected book.");
+                return;
+            }
+
+            foreach (var copy in copies)
             {
                 Console.WriteLine($"ID: {copy.BookCopyId} | Barcode: {copy.Barcode} | Status: {copy.Status}");
             }
@@ -113,9 +126,16 @@ namespace BookLendingApp.Application.Borrow
 
         private void ViewAvailableByBookId()
         {
-            Console.WriteLine("Enter book id:");
-            if (!Guid.TryParse(Console.ReadLine(), out var bookId)) return;
-            foreach (var copy in _bookCopyService.GetAvailableCopiesByBookId(bookId))
+            var bookId = PromptBookSelection();
+            if (bookId == Guid.Empty) return;
+            var copies = _bookCopyService.GetAvailableCopiesByBookId(bookId) ?? new System.Collections.Generic.List<BookLendingApp.ModelLibrary.Models.BookCopy>();
+            if (copies.Count == 0)
+            {
+                Console.WriteLine("No available copies found for the selected book.");
+                return;
+            }
+
+            foreach (var copy in copies)
             {
                 Console.WriteLine($"ID: {copy.BookCopyId} | Barcode: {copy.Barcode} | Status: {copy.Status}");
             }
@@ -123,10 +143,10 @@ namespace BookLendingApp.Application.Borrow
 
         private void SearchByStatus()
         {
-            Console.WriteLine("Enter book id:");
-            if (!Guid.TryParse(Console.ReadLine(), out var bookId)) return;
-            Console.WriteLine("Enter status:");
-            if (!Enum.TryParse(Console.ReadLine(), true, out BookStatus status)) return;
+            var bookId = PromptBookSelection();
+            if (bookId == Guid.Empty) return;
+
+            var status = ConsoleInputValidator.PromptEnumSelection<BookStatus>("Select a status:");
             foreach (var copy in _bookCopyService.GetCopiesByStatus(bookId, status))
             {
                 Console.WriteLine($"ID: {copy.BookCopyId} | Barcode: {copy.Barcode} | Status: {copy.Status}");
@@ -135,14 +155,54 @@ namespace BookLendingApp.Application.Borrow
 
         private void SearchByCondition()
         {
-            Console.WriteLine("Enter book id:");
-            if (!Guid.TryParse(Console.ReadLine(), out var bookId)) return;
-            Console.WriteLine("Enter condition term:");
-            var condition = Console.ReadLine() ?? string.Empty;
+            var bookId = PromptBookSelection();
+            if (bookId == Guid.Empty) return;
+
+            var condition = ConsoleInputValidator.ReadRequiredString("Enter condition term:");
             foreach (var copy in _bookCopyService.GetCopiesByCondition(bookId, condition))
             {
                 Console.WriteLine($"ID: {copy.BookCopyId} | Barcode: {copy.Barcode} | Condition: {copy.Condition}");
             }
+        }
+
+        private Guid PromptBookSelection()
+        {
+            var books = _bookService.GetAllBooks() ?? new System.Collections.Generic.List<BookLendingApp.ModelLibrary.Models.Book>();
+            if (books.Count == 0)
+            {
+                Console.WriteLine("No books found. Add a book first.");
+                return Guid.Empty;
+            }
+
+            var selectedBook = ConsoleInputValidator.PromptSelection(
+                "Select a book:",
+                books,
+                book => $"{book.Title} | {book.Author} | ISBN: {book.ISBN}");
+
+            return selectedBook.BookId;
+        }
+
+        private Guid PromptBookCopySelection()
+        {
+            var copies = _bookCopyService.GetAllBookCopies() ?? new System.Collections.Generic.List<BookLendingApp.ModelLibrary.Models.BookCopy>();
+            if (copies.Count == 0)
+            {
+                Console.WriteLine("No book copies found.");
+                return Guid.Empty;
+            }
+
+            var selectedCopy = ConsoleInputValidator.PromptSelection(
+                "Select a book copy:",
+                copies,
+                copy =>
+                {
+                    var books = _bookService.GetAllBooks() ?? new System.Collections.Generic.List<BookLendingApp.ModelLibrary.Models.Book>();
+                    var titleMap = books.ToDictionary(b => b.BookId, b => b.Title);
+                    var title = titleMap.TryGetValue(copy.BookId, out var t) ? t : copy.BookId.ToString();
+                    return $"Book: {title} | Barcode: {copy.Barcode} | Shelf: {copy.ShelfLocation} | Status: {copy.Status}";
+                });
+
+            return selectedCopy.BookCopyId;
         }
     }
 }

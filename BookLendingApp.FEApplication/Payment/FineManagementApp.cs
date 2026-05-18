@@ -1,15 +1,22 @@
 using System;
 using BookLendingApp.Ballibrary.Interfaces;
+using BookLendingApp.ModelLibrary.Models;
+using BookLendingApp.FEApplication.Security;
+using BookLendingApp.FEApplication.Validation;
+using ModelMember = BookLendingApp.ModelLibrary.Models.Member;
+using ModelPayment = BookLendingApp.ModelLibrary.Models.Payment;
 
 namespace BookLendingApp.Application.Payment
 {
     public class FineManagementApp
     {
         private readonly IFineManagementService _fineManagementService;
+        private readonly AppSession _session;
 
-        public FineManagementApp(IFineManagementService fineManagementService)
+        public FineManagementApp(IFineManagementService fineManagementService, AppSession session)
         {
             _fineManagementService = fineManagementService;
+            _session = session;
         }
 
         public void FineMenu()
@@ -22,12 +29,14 @@ namespace BookLendingApp.Application.Payment
                 Console.WriteLine("3. Fine History");
                 Console.WriteLine("4. Back");
 
-                switch (Console.ReadLine())
+                var choice = ConsoleInputValidator.ReadInt("Select an option:", 1, 4);
+
+                switch (choice)
                 {
-                    case "1": ViewPendingFines(); break;
-                    case "2": PayFine(); break;
-                    case "3": FineHistory(); break;
-                    case "4": return;
+                    case 1: ViewPendingFines(); break;
+                    case 2: PayFine(); break;
+                    case 3: FineHistory(); break;
+                    case 4: return;
                     default: Console.WriteLine("Invalid choice."); break;
                 }
             }
@@ -35,31 +44,69 @@ namespace BookLendingApp.Application.Payment
 
         private void ViewPendingFines()
         {
-            Console.WriteLine("Enter member id:");
-            if (!Guid.TryParse(Console.ReadLine(), out var memberId)) return;
-            var pending = _fineManagementService.GetPendingFines(memberId);
+            if (!TryGetCurrentMember(out var member)) return;
+
+            var pending = _fineManagementService.GetPendingFines(member.MemberId) ?? new System.Collections.Generic.List<ModelPayment>();
+            if (pending.Count == 0)
+            {
+                Console.WriteLine("No pending fines found.");
+                return;
+            }
+
             foreach (var payment in pending)
             {
                 Console.WriteLine($"PaymentId: {payment.PaymentId} | Amount: {payment.Amount} | Type: {payment.PaymentType} | Paid: {payment.IsPaid}");
             }
-            Console.WriteLine($"Total pending: ₹{_fineManagementService.GetPendingFineTotal(memberId)}");
+            Console.WriteLine($"Total pending: ₹{_fineManagementService.GetPendingFineTotal(member.MemberId)}");
         }
 
         private void PayFine()
         {
-            Console.WriteLine("Enter payment id:");
-            if (!Guid.TryParse(Console.ReadLine(), out var paymentId)) return;
+            if (!TryGetCurrentMember(out var member)) return;
+
+            var pending = _fineManagementService.GetPendingFines(member.MemberId) ?? new System.Collections.Generic.List<ModelPayment>();
+            if (pending.Count == 0)
+            {
+                Console.WriteLine("No pending fines to pay.");
+                return;
+            }
+
+            var selected = ConsoleInputValidator.PromptSelection<ModelPayment>(
+                "Select a pending fine to pay:",
+                pending,
+                payment => $"PaymentId: {payment.PaymentId} | Amount: {payment.Amount} | Type: {payment.PaymentType}");
+
+            var paymentId = selected.PaymentId;
             Console.WriteLine(_fineManagementService.PayFine(paymentId) ? "Fine paid." : "Payment not found.");
         }
 
         private void FineHistory()
         {
-            Console.WriteLine("Enter member id:");
-            if (!Guid.TryParse(Console.ReadLine(), out var memberId)) return;
-            foreach (var payment in _fineManagementService.GetFineHistory(memberId))
+            if (!TryGetCurrentMember(out var member)) return;
+
+            var history = _fineManagementService.GetFineHistory(member.MemberId) ?? new System.Collections.Generic.List<ModelPayment>();
+            if (history.Count == 0)
+            {
+                Console.WriteLine("No fine history found.");
+                return;
+            }
+
+            foreach (var payment in history)
             {
                 Console.WriteLine($"PaymentId: {payment.PaymentId} | Amount: {payment.Amount} | Type: {payment.PaymentType} | Paid: {payment.IsPaid}");
             }
+        }
+
+        private bool TryGetCurrentMember(out ModelMember member)
+        {
+            member = _session.CurrentMember!;
+            if (_session.IsMember && member != null)
+            {
+                return true;
+            }
+
+            Console.WriteLine("Please sign in as a user to access fine management.");
+            return false;
         }
     }
 }

@@ -1,15 +1,18 @@
 using System;
 using BookLendingApp.Ballibrary.Interfaces;
+using BookLendingApp.FEApplication.Validation;
 
 namespace BookLendingApp.Application.Member
 {
     public class MemberApp
     {
         private readonly IMemberService _memberService;
+        private readonly IMembershipService _membershipService;
 
-        public MemberApp(IMemberService memberService)
+        public MemberApp(IMemberService memberService, IMembershipService membershipService)
         {
             _memberService = memberService;
+            _membershipService = membershipService;
         }
 
         public void MemberMenu()
@@ -28,18 +31,20 @@ namespace BookLendingApp.Application.Member
                 Console.WriteLine("9. Search by Phone");
                 Console.WriteLine("10. Back");
 
-                switch (Console.ReadLine())
+                var choice = ConsoleInputValidator.ReadInt("Select an option:", 1, 10);
+
+                switch (choice)
                 {
-                    case "1": AddMember(); break;
-                    case "2": ViewMembers(); break;
-                    case "3": UpdateMember(); break;
-                    case "4": DeleteMember(); break;
-                    case "5": ViewActiveMembers(); break;
-                    case "6": UpdateMembership(); break;
-                    case "7": UpdateStatus(); break;
-                    case "8": SearchByEmail(); break;
-                    case "9": SearchByPhone(); break;
-                    case "10": return;
+                    case 1: AddMember(); break;
+                    case 2: ViewMembers(); break;
+                    case 3: UpdateMember(); break;
+                    case 4: DeleteMember(); break;
+                    case 5: ViewActiveMembers(); break;
+                    case 6: UpdateMembership(); break;
+                    case 7: UpdateStatus(); break;
+                    case 8: SearchByEmail(); break;
+                    case 9: SearchByPhone(); break;
+                    case 10: return;
                     default: Console.WriteLine("Invalid choice."); break;
                 }
             }
@@ -47,21 +52,15 @@ namespace BookLendingApp.Application.Member
 
         private void AddMember()
         {
-            Console.WriteLine("Enter full name:");
-            var fullName = Console.ReadLine() ?? string.Empty;
-            Console.WriteLine("Enter email:");
-            var email = Console.ReadLine() ?? string.Empty;
-            Console.WriteLine("Enter password:");
-            var password = Console.ReadLine() ?? string.Empty;
-            Console.WriteLine("Enter membership id:");
-            var membershipIdInput = Console.ReadLine();
-            if (!Guid.TryParse(membershipIdInput, out var membershipId))
+            var fullName = ConsoleInputValidator.ReadRequiredString("Enter full name:");
+            var email = ConsoleInputValidator.ReadEmail("Enter email:");
+            var password = ConsoleInputValidator.ReadRequiredString("Enter password:");
+            var membershipId = PromptMembershipSelection();
+            if (membershipId == Guid.Empty)
             {
-                Console.WriteLine("Invalid membership id.");
                 return;
             }
-            Console.WriteLine("Enter mobile number (optional):");
-            var mobile = Console.ReadLine();
+            var mobile = ConsoleInputValidator.ReadOptionalMobileNumber("Enter mobile number (optional):");
 
             try
             {
@@ -98,33 +97,19 @@ namespace BookLendingApp.Application.Member
 
         private void UpdateMember()
         {
-            Console.WriteLine("Enter member id:");
-            var memberIdInput = Console.ReadLine();
-            if (!Guid.TryParse(memberIdInput, out var memberId))
+            var memberId = PromptMemberSelection();
+
+            var fullName = ConsoleInputValidator.ReadRequiredString("Enter full name:");
+            var email = ConsoleInputValidator.ReadEmail("Enter email:");
+            var password = ConsoleInputValidator.ReadRequiredString("Enter password:");
+            var membershipId = PromptMembershipSelection();
+            if (membershipId == Guid.Empty)
             {
-                Console.WriteLine("Invalid member id.");
                 return;
             }
 
-            Console.WriteLine("Enter full name:");
-            var fullName = Console.ReadLine() ?? string.Empty;
-            Console.WriteLine("Enter email:");
-            var email = Console.ReadLine() ?? string.Empty;
-            Console.WriteLine("Enter password:");
-            var password = Console.ReadLine() ?? string.Empty;
-            Console.WriteLine("Enter membership id:");
-            var membershipIdInput = Console.ReadLine();
-            if (!Guid.TryParse(membershipIdInput, out var membershipId))
-            {
-                Console.WriteLine("Invalid membership id.");
-                return;
-            }
-
-            Console.WriteLine("Is active? (true/false):");
-            var isActiveInput = Console.ReadLine();
-            bool.TryParse(isActiveInput, out var isActive);
-            Console.WriteLine("Enter mobile number (optional):");
-            var mobile = Console.ReadLine();
+            var isActive = ConsoleInputValidator.ReadYesNo("Is active?", defaultValue: true);
+            var mobile = ConsoleInputValidator.ReadOptionalMobileNumber("Enter mobile number (optional):");
 
             try
             {
@@ -139,13 +124,7 @@ namespace BookLendingApp.Application.Member
 
         private void DeleteMember()
         {
-            Console.WriteLine("Enter member id:");
-            var memberIdInput = Console.ReadLine();
-            if (!Guid.TryParse(memberIdInput, out var memberId))
-            {
-                Console.WriteLine("Invalid member id.");
-                return;
-            }
+            var memberId = PromptMemberSelection();
 
             try
             {
@@ -169,44 +148,40 @@ namespace BookLendingApp.Application.Member
 
         private void UpdateMembership()
         {
-            Console.WriteLine("Enter member id:");
-            var memberIdInput = Console.ReadLine();
-            if (!Guid.TryParse(memberIdInput, out var memberId))
+            var memberId = PromptMemberSelection();
+            if (memberId == Guid.Empty) return;
+
+            var membershipId = PromptMembershipSelection();
+            if (membershipId == Guid.Empty)
             {
-                Console.WriteLine("Invalid member id.");
                 return;
             }
 
-            Console.WriteLine("Enter new membership id:");
-            var membershipId = Console.ReadLine() ?? string.Empty;
-            var ok = _memberService.UpdateMembership(memberId, membershipId);
+            var ok = _memberService.UpdateMembership(memberId, membershipId.ToString());
             Console.WriteLine(ok ? "Membership updated." : "Membership update failed.");
         }
 
         private void UpdateStatus()
         {
-            Console.WriteLine("Enter member id:");
-            var memberIdInput = Console.ReadLine();
-            if (!Guid.TryParse(memberIdInput, out var memberId))
-            {
-                Console.WriteLine("Invalid member id.");
-                return;
-            }
+            var memberId = PromptMemberSelection();
 
-            Console.WriteLine("Enter status (true/false):");
-            var isActiveInput = Console.ReadLine();
-            bool.TryParse(isActiveInput, out var isActive);
+            var isActive = ConsoleInputValidator.ReadYesNo("Set member as active?", defaultValue: true);
             var ok = _memberService.UpdateStatus(memberId, isActive);
             Console.WriteLine(ok ? "Status updated." : "Status update failed.");
         }
 
         private void SearchByEmail()
         {
-            Console.WriteLine("Enter email:");
-            var email = Console.ReadLine() ?? string.Empty;
+            var email = ConsoleInputValidator.ReadEmail("Enter email:");
             try
             {
                 var member = _memberService.GetMemberByEmail(email);
+                if (member == null)
+                {
+                    Console.WriteLine("No member found with that email.");
+                    return;
+                }
+
                 Console.WriteLine($"ID: {member.MemberId} | Name: {member.FullName} | Email: {member.EmailId}");
             }
             catch (Exception ex)
@@ -217,17 +192,56 @@ namespace BookLendingApp.Application.Member
 
         private void SearchByPhone()
         {
-            Console.WriteLine("Enter phone:");
-            var phone = Console.ReadLine() ?? string.Empty;
+            var phone = ConsoleInputValidator.ReadMobileNumber("Enter phone:");
             try
             {
                 var member = _memberService.GetMemberByPhone(phone);
+                if (member == null)
+                {
+                    Console.WriteLine("No member found with that phone.");
+                    return;
+                }
+
                 Console.WriteLine($"ID: {member.MemberId} | Name: {member.FullName} | Phone: {member.MobileNumber}");
             }
             catch (Exception ex)
             {
                 Console.WriteLine($"Error: {ex.Message}");
             }
+        }
+
+        private Guid PromptMembershipSelection()
+        {
+            var memberships = _membershipService.GetAllMemberships();
+            if (memberships.Count == 0)
+            {
+                Console.WriteLine("No membership types found. Create one first.");
+                return Guid.Empty;
+            }
+
+            var selectedMembership = ConsoleInputValidator.PromptSelection(
+                "Choose a membership type:",
+                memberships,
+                membership => $"{membership.Name} | Books: {membership.MaxBooksAllowed} | Days: {membership.MaxBorrowDurationDays} | Renewal: {(membership.IsRenewalAllowed ? "Yes" : "No")}");
+
+            return selectedMembership.MemberShipId;
+        }
+
+        private Guid PromptMemberSelection()
+        {
+            var members = _memberService.GetAllMembers();
+            if (members.Count == 0)
+            {
+                Console.WriteLine("No members found. Add a member first.");
+                return Guid.Empty;
+            }
+
+            var selected = ConsoleInputValidator.PromptSelection(
+                "Select a member:",
+                members,
+                m => $"{m.FullName} | {m.EmailId} | Active: {m.IsActive}");
+
+            return selected.MemberId;
         }
     }
 }

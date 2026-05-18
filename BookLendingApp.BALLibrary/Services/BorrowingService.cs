@@ -17,6 +17,7 @@ namespace BookLendingApp.Ballibrary.Services
         private readonly IBookCopyRepository _bookCopyRepository;
         private readonly IBorrowRecordRepository _borrowRecordRepository;
         private readonly IPaymentRepository _paymentRepository;
+        private readonly IFineRuleRepository _fineRuleRepository;
 
         public BorrowingService(
             BookLendingAppContext context,
@@ -25,7 +26,8 @@ namespace BookLendingApp.Ballibrary.Services
             IBookRepository bookRepository,
             IBookCopyRepository bookCopyRepository,
             IBorrowRecordRepository borrowRecordRepository,
-            IPaymentRepository paymentRepository)
+            IPaymentRepository paymentRepository,
+            IFineRuleRepository fineRuleRepository)
         {
             _context = context;
             _memberRepository = memberRepository;
@@ -34,57 +36,58 @@ namespace BookLendingApp.Ballibrary.Services
             _bookCopyRepository = bookCopyRepository;
             _borrowRecordRepository = borrowRecordRepository;
             _paymentRepository = paymentRepository;
+            _fineRuleRepository = fineRuleRepository;
         }
 
         public BorrowRecord BorrowBook(Guid memberId, Guid bookCopyId)
         {
-            using var transaction = _context.Database.BeginTransaction();
-
-            try
-            {
-                var member = _memberRepository.Get(memberId) ?? throw new KeyNotFoundException($"Member {memberId} not found.");
+            // Perform read-only validations first (avoid opening a transaction while running raw DB functions)
+            var member = _memberRepository.Get(memberId) ?? throw new KeyNotFoundException($"Member {memberId} not found.");
                 if (!member.IsActive)
                 {
                     throw new InvalidOperationException("Member is inactive.");
                 }
+            var membership = _membershipRepository.Get(member.MembershipId) ?? throw new KeyNotFoundException($"Membership {member.MembershipId} not found.");
 
-                var membership = _membershipRepository.Get(member.MembershipId) ?? throw new KeyNotFoundException($"Membership {member.MembershipId} not found.");
-                var unpaidFine = GetUnpaidFine(memberId);
-                if (unpaidFine > 500)
-                {
-                    throw new InvalidOperationException("Unpaid fine exceeds the borrowing limit of ₹500.");
-                }
+            var unpaidFine = GetUnpaidFine(memberId);
+            if (unpaidFine > 500)
+            {
+                throw new InvalidOperationException("Unpaid fine exceeds the borrowing limit of ₹500.");
+            }
 
-                var bookCopy = _bookCopyRepository.Get(bookCopyId) ?? throw new KeyNotFoundException($"Book copy {bookCopyId} not found.");
-                if (bookCopy.Status != BookStatus.Available)
-                {
-                    throw new InvalidOperationException("Book copy is not available.");
-                }
+            var bookCopy = _bookCopyRepository.Get(bookCopyId) ?? throw new KeyNotFoundException($"Book copy {bookCopyId} not found.");
+            if (bookCopy.Status != BookStatus.Available && bookCopy.Status != BookStatus.Damaged)
+            {
+                throw new InvalidOperationException("Book copy is not available.");
+            }
 
-                var book = _bookRepository.Get(bookCopy.BookId) ?? throw new KeyNotFoundException($"Book {bookCopy.BookId} not found.");
-                if (_borrowRecordRepository.HasActiveBorrowForBook(memberId, book.BookId))
-                {
-                    throw new InvalidOperationException("Member already has an active borrow for this book.");
-                }
+            var book = _bookRepository.Get(bookCopy.BookId) ?? throw new KeyNotFoundException($"Book {bookCopy.BookId} not found.");
+            if (_borrowRecordRepository.HasActiveBorrowForBook(memberId, book.BookId))
+            {
+                throw new InvalidOperationException("Member already has an active borrow for this book.");
+            }
 
-                var activeBorrowCount = _borrowRecordRepository.GetActiveBorrowCount(memberId);
-                if (activeBorrowCount >= membership.MaxBooksAllowed)
-                {
-                    throw new InvalidOperationException("Borrowing limit exceeded.");
-                }
+            var activeBorrowCount = _borrowRecordRepository.GetActiveBorrowCount(memberId);
+            if (activeBorrowCount >= membership.MaxBooksAllowed)
+            {
+                throw new InvalidOperationException("Borrowing limit exceeded.");
+            }
 
-                var dueDate = DateTime.UtcNow.AddDays(membership.MaxBorrowDurationDays);
-                var borrowRecord = new BorrowRecord
-                {
-                    BorrowRecordId = Guid.NewGuid(),
-                    MemberId = memberId,
-                    BookCopyId = bookCopyId,
-                    BorrowDate = DateTime.UtcNow,
-                    BorrowStatus = BorrowStatus.Active,
-                    RenewalCount = 0,
-                    RenewalDays = membership.MaxBorrowDurationDays
-                };
+            var dueDate = DateTime.UtcNow.AddDays(membership.MaxBorrowDurationDays);
+            var borrowRecord = new BorrowRecord
+            {
+                BorrowRecordId = Guid.NewGuid(),
+                MemberId = memberId,
+                BookCopyId = bookCopyId,
+                BorrowDate = DateTime.UtcNow,
+                BorrowStatus = BorrowStatus.Active,
+                RenewalCount = 0,
+                RenewalDays = membership.MaxBorrowDurationDays
+            };
 
+            using var transaction = _context.Database.BeginTransaction();
+            try
+            {
                 _borrowRecordRepository.Create(borrowRecord);
                 bookCopy.Status = BookStatus.LentOut;
                 _bookCopyRepository.Update(bookCopy.BookCopyId, bookCopy);
@@ -117,7 +120,7 @@ namespace BookLendingApp.Ballibrary.Services
 
                 var dueDate = borrowRecord.BorrowDate.AddDays(borrowRecord.RenewalDays);
                 var delayedDays = (int)Math.Max(0, (returnDate.Date - dueDate.Date).TotalDays);
-                var fineAmount = delayedDays * 10m;
+                var fineAmount = CalculateLateFee(delayedDays);
 
                 borrowRecord.ReturnDate = returnDate;
                 borrowRecord.BorrowStatus = BorrowStatus.Returned;
@@ -201,6 +204,48 @@ namespace BookLendingApp.Ballibrary.Services
             }
         }
 
+        public MemberBorrowingSummary GetMemberBorrowingSummary(Guid memberId)
+        {
+            var connection = _context.Database.GetDbConnection();
+            var openedHere = false;
+            if (connection.State != System.Data.ConnectionState.Open)
+            {
+                connection.Open();
+                openedHere = true;
+            }
+
+            try
+            {
+                using var command = connection.CreateCommand();
+                command.CommandText = "SELECT active_borrows, returned_borrows, total_unpaid_fine FROM get_member_borrowing_summary(@member_id)";
+
+                var parameter = command.CreateParameter();
+                parameter.ParameterName = "@member_id";
+                parameter.Value = memberId;
+                command.Parameters.Add(parameter);
+
+                using var reader = command.ExecuteReader();
+                if (!reader.Read())
+                {
+                    return new MemberBorrowingSummary();
+                }
+
+                return new MemberBorrowingSummary
+                {
+                    ActiveBorrows = Convert.ToInt64(reader["active_borrows"]),
+                    ReturnedBorrows = Convert.ToInt64(reader["returned_borrows"]),
+                    TotalUnpaidFine = reader["total_unpaid_fine"] == DBNull.Value ? 0m : Convert.ToDecimal(reader["total_unpaid_fine"])
+                };
+            }
+            finally
+            {
+                if (openedHere)
+                {
+                    connection.Close();
+                }
+            }
+        }
+
         public List<BorrowRecord> GetActiveBorrowRecords(Guid memberId)
         {
             return _borrowRecordRepository.GetActiveBorrowRecordsByMember(memberId);
@@ -258,21 +303,52 @@ namespace BookLendingApp.Ballibrary.Services
 
         private decimal GetUnpaidFineFromDatabaseFunction(Guid memberId)
         {
-            using var connection = _context.Database.GetDbConnection();
+            var connection = _context.Database.GetDbConnection();
+            var openedHere = false;
             if (connection.State != System.Data.ConnectionState.Open)
             {
                 connection.Open();
+                openedHere = true;
             }
 
             using var command = connection.CreateCommand();
             command.CommandText = "SELECT calculate_member_fine(@member_id)";
             var parameter = command.CreateParameter();
-            parameter.ParameterName = "member_id";
+            parameter.ParameterName = "@member_id";
             parameter.Value = memberId;
             command.Parameters.Add(parameter);
 
             var result = command.ExecuteScalar();
+
+            if (openedHere)
+            {
+                connection.Close();
+            }
+
             return result == null || result == DBNull.Value ? 0m : Convert.ToDecimal(result);
+        }
+
+        private decimal CalculateLateFee(int delayedDays)
+        {
+            if (delayedDays <= 0)
+            {
+                return 0m;
+            }
+
+            var lateReturnRules = _fineRuleRepository.GetFineRulesByFineType(FineType.LateReturn);
+            if (lateReturnRules.Count == 0)
+            {
+                return delayedDays * 10m;
+            }
+
+            var rule = lateReturnRules[0];
+            return rule.FineCalculationType switch
+            {
+                FineCalculationType.PerDay => delayedDays * rule.Amount,
+                FineCalculationType.FlatFee => rule.Amount,
+                FineCalculationType.Percentage => rule.Amount * ((rule.Percentage ?? 100m) / 100m),
+                _ => delayedDays * 10m
+            };
         }
     }
 }

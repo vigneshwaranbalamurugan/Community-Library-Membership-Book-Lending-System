@@ -36,11 +36,11 @@ namespace BookLendingApp.DALLibrary.Repositories
         }
         public override BookCopy? Get(Guid key)
         {
-            return _context.BookCopies.FirstOrDefault(b => b.BookCopyId == key);
+            return _context.BookCopies.Include(b => b.Book).FirstOrDefault(b => b.BookCopyId == key);
         }
         public override List<BookCopy> GetAll()
         {
-            return _context.BookCopies.ToList();
+            return _context.BookCopies.Include(b => b.Book).ToList();
         }
         public override BookCopy Delete(Guid key)
         {
@@ -55,13 +55,14 @@ namespace BookLendingApp.DALLibrary.Repositories
 
         public List<BookCopy> GetCopiesByBookId(Guid bookId)
         {
-            return _context.BookCopies.Where(c => c.BookId == bookId).ToList();
+            return _context.BookCopies.Where(c => c.BookId == bookId).Include(c => c.Book).ToList();
         }
 
         public List<BookCopy> GetAvailableCopiesByBookId(Guid bookId)
         {
             return _context.BookCopies
                 .Where(c => c.BookId == bookId && c.Status == BookStatus.Available)
+                .Include(c => c.Book)
                 .ToList();
         }
 
@@ -69,6 +70,7 @@ namespace BookLendingApp.DALLibrary.Repositories
         {
             return _context.BookCopies
                 .Where(c => c.BookId == bookId && c.Status == status)
+                .Include(c => c.Book)
                 .ToList();
         }
 
@@ -78,6 +80,7 @@ namespace BookLendingApp.DALLibrary.Repositories
             var term = $"%{condition}%";
             return _context.BookCopies
                 .Where(c => c.BookId == bookId && c.Condition != null && EF.Functions.ILike(c.Condition, term))
+                .Include(c => c.Book)
                 .ToList();
         }
     }

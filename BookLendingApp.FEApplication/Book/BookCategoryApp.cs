@@ -1,5 +1,6 @@
 using System;
 using BookLendingApp.Ballibrary.Interfaces;
+using BookLendingApp.FEApplication.Validation;
 
 namespace BookLendingApp.Application.Book
 {
@@ -23,14 +24,15 @@ namespace BookLendingApp.Application.Book
 				Console.WriteLine("4. Delete Category");
 				Console.WriteLine("5. Back");
 
-				var choice = Console.ReadLine();
-				switch (choice)
+					var choiceNumber = ConsoleInputValidator.ReadInt("Select an option:", 1, 5);
+
+				switch (choiceNumber)
 				{
-					case "1": AddCategory(); break;
-					case "2": ViewCategories(); break;
-					case "3": UpdateCategory(); break;
-					case "4": DeleteCategory(); break;
-					case "5": return;
+					case 1: AddCategory(); break;
+					case 2: ViewCategories(); break;
+					case 3: UpdateCategory(); break;
+					case 4: DeleteCategory(); break;
+					case 5: return;
 					default: Console.WriteLine("Invalid choice."); break;
 				}
 			}
@@ -38,14 +40,12 @@ namespace BookLendingApp.Application.Book
 
 		private void AddCategory()
 		{
-			Console.WriteLine("Enter category name:");
-			var name = Console.ReadLine();
-			Console.WriteLine("Enter description (optional):");
-			var desc = Console.ReadLine();
+			var name = ConsoleInputValidator.ReadRequiredString("Enter category name:");
+			var desc = ConsoleInputValidator.ReadOptionalString("Enter description (optional):");
 
 				try
 				{
-					_bookCategoryService.AddCategory(name ?? string.Empty, desc);
+					_bookCategoryService.AddCategory(name, desc);
 					Console.WriteLine("Category added.");
 				}
 			catch (Exception ex)
@@ -77,22 +77,14 @@ namespace BookLendingApp.Application.Book
 
 		private void UpdateCategory()
 		{
-			Console.WriteLine("Enter category ID to update:");
-			var idInput = Console.ReadLine();
-			if (!Guid.TryParse(idInput, out var id))
-			{
-				Console.WriteLine("Invalid ID format.");
-				return;
-			}
+			var id = PromptCategorySelection();
 
-			Console.WriteLine("Enter new name:");
-			var name = Console.ReadLine();
-			Console.WriteLine("Enter new description (optional):");
-			var desc = Console.ReadLine();
+			var name = ConsoleInputValidator.ReadRequiredString("Enter new name:");
+			var desc = ConsoleInputValidator.ReadOptionalString("Enter new description (optional):");
 
 				try
 				{
-					_bookCategoryService.UpdateCategory(id, name ?? string.Empty, desc);
+					_bookCategoryService.UpdateCategory(id, name, desc);
 					Console.WriteLine("Category updated.");
 				}
 				catch (Exception ex)
@@ -103,17 +95,9 @@ namespace BookLendingApp.Application.Book
 
 		private void DeleteCategory()
 		{
-			Console.WriteLine("Enter category ID to delete:");
-			var idInput = Console.ReadLine();
-			if (!Guid.TryParse(idInput, out var id))
-			{
-				Console.WriteLine("Invalid ID format.");
-				return;
-			}
+			var id = PromptCategorySelection();
 
-			Console.WriteLine("Are you sure? (y/N)");
-			var confirm = Console.ReadLine();
-			if (!string.Equals(confirm, "y", StringComparison.OrdinalIgnoreCase))
+			if (!ConsoleInputValidator.ReadYesNo("Are you sure?", defaultValue: false))
 			{
 				Console.WriteLine("Cancelled.");
 				return;
@@ -128,6 +112,23 @@ namespace BookLendingApp.Application.Book
 			{
 				Console.WriteLine($"Error deleting category: {ex.Message}");
 			}
+		}
+
+		private Guid PromptCategorySelection()
+		{
+			var cats = _bookCategoryService.GetAllCategories();
+			if (cats == null || cats.Count == 0)
+			{
+				Console.WriteLine("No categories found.");
+				return Guid.Empty;
+			}
+
+			var selected = ConsoleInputValidator.PromptSelection(
+				"Select a category:",
+				cats,
+				c => $"{c.Name} | {c.Description}");
+
+			return selected.CategoryId;
 		}
 	}
 }

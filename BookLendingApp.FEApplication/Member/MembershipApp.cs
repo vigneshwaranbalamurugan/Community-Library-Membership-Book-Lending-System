@@ -1,5 +1,6 @@
 using System;
 using BookLendingApp.Ballibrary.Interfaces;
+using BookLendingApp.FEApplication.Validation;
 
 namespace BookLendingApp.Application.Member
 {
@@ -25,15 +26,17 @@ namespace BookLendingApp.Application.Member
                 Console.WriteLine("6. Update Duration");
                 Console.WriteLine("7. Back");
 
-                switch (Console.ReadLine())
+                var choice = ConsoleInputValidator.ReadInt("Select an option:", 1, 7);
+
+                switch (choice)
                 {
-                    case "1": AddMembership(); break;
-                    case "2": ViewMemberships(); break;
-                    case "3": UpdateMembership(); break;
-                    case "4": DeleteMembership(); break;
-                    case "5": UpdateMaxBooks(); break;
-                    case "6": UpdateDuration(); break;
-                    case "7": return;
+                    case 1: AddMembership(); break;
+                    case 2: ViewMemberships(); break;
+                    case 3: UpdateMembership(); break;
+                    case 4: DeleteMembership(); break;
+                    case 5: UpdateMaxBooks(); break;
+                    case 6: UpdateDuration(); break;
+                    case 7: return;
                     default: Console.WriteLine("Invalid choice."); break;
                 }
             }
@@ -41,20 +44,13 @@ namespace BookLendingApp.Application.Member
 
         private void AddMembership()
         {
-            Console.WriteLine("Enter name:");
-            var name = Console.ReadLine() ?? string.Empty;
-            Console.WriteLine("Enter max books allowed:");
-            int.TryParse(Console.ReadLine(), out var maxBooks);
-            Console.WriteLine("Enter max borrow duration days:");
-            int.TryParse(Console.ReadLine(), out var maxBorrowDays);
-            Console.WriteLine("Is renewal allowed? (true/false):");
-            bool.TryParse(Console.ReadLine(), out var isRenewalAllowed);
-            Console.WriteLine("Enter max renewal times:");
-            int.TryParse(Console.ReadLine(), out var maxRenewalTimes);
-            Console.WriteLine("Enter max renewal duration days:");
-            int.TryParse(Console.ReadLine(), out var maxRenewalDays);
-            Console.WriteLine("Enter membership fee:");
-            decimal.TryParse(Console.ReadLine(), out var fee);
+            var name = ConsoleInputValidator.ReadRequiredString("Enter name:");
+            var maxBooks = ConsoleInputValidator.ReadInt("Enter max books allowed:", 0);
+            var maxBorrowDays = ConsoleInputValidator.ReadInt("Enter max borrow duration days:", 0);
+            var isRenewalAllowed = ConsoleInputValidator.ReadYesNo("Is renewal allowed?", defaultValue: false);
+            var maxRenewalTimes = ConsoleInputValidator.ReadInt("Enter max renewal times:", 0);
+            var maxRenewalDays = ConsoleInputValidator.ReadInt("Enter max renewal duration days:", 0);
+            var fee = ConsoleInputValidator.ReadDecimal("Enter membership fee:", 0m);
 
             _membershipService.AddMembership(name, maxBooks, maxBorrowDays, isRenewalAllowed, maxRenewalTimes, maxRenewalDays, fee);
             Console.WriteLine("Membership added.");
@@ -62,32 +58,32 @@ namespace BookLendingApp.Application.Member
 
         private void ViewMemberships()
         {
-            var memberships = _membershipService.GetAllMemberships();
+            var memberships = _membershipService.GetAllMemberships() ?? new System.Collections.Generic.List<BookLendingApp.ModelLibrary.Models.MemberShip>();
+            if (memberships.Count == 0)
+            {
+                Console.WriteLine("No memberships found.");
+                return;
+            }
+
             foreach (var membership in memberships)
             {
-                Console.WriteLine($"ID: {membership.MemberShipId} | Name: {membership.Name} | MaxBooks: {membership.MaxBooksAllowed} | DurationDays: {membership.MaxBorrowDurationDays} | Fee: {membership.MembershipFee}");
+                Console.WriteLine(
+                    $"ID: {membership.MemberShipId} | Name: {membership.Name} | Books: {membership.MaxBooksAllowed} | BorrowDays: {membership.MaxBorrowDurationDays} | Renewal: {(membership.IsRenewalAllowed ? "Yes" : "No")} | RenewalTimes: {membership.MaxRenewalTimes} | RenewalDays: {membership.MaxRenewalDurationDays} | Fee: {membership.MembershipFee}");
             }
         }
 
         private void UpdateMembership()
         {
-            Console.WriteLine("Enter membership id:");
-            if (!Guid.TryParse(Console.ReadLine(), out var membershipId)) return;
+            var membershipId = PromptMembershipSelection();
+            if (membershipId == Guid.Empty) return;
 
-            Console.WriteLine("Enter name:");
-            var name = Console.ReadLine() ?? string.Empty;
-            Console.WriteLine("Enter max books allowed:");
-            int.TryParse(Console.ReadLine(), out var maxBooks);
-            Console.WriteLine("Enter max borrow duration days:");
-            int.TryParse(Console.ReadLine(), out var maxBorrowDays);
-            Console.WriteLine("Is renewal allowed? (true/false):");
-            bool.TryParse(Console.ReadLine(), out var isRenewalAllowed);
-            Console.WriteLine("Enter max renewal times:");
-            int.TryParse(Console.ReadLine(), out var maxRenewalTimes);
-            Console.WriteLine("Enter max renewal duration days:");
-            int.TryParse(Console.ReadLine(), out var maxRenewalDays);
-            Console.WriteLine("Enter membership fee:");
-            decimal.TryParse(Console.ReadLine(), out var fee);
+            var name = ConsoleInputValidator.ReadRequiredString("Enter name:");
+            var maxBooks = ConsoleInputValidator.ReadInt("Enter max books allowed:", 0);
+            var maxBorrowDays = ConsoleInputValidator.ReadInt("Enter max borrow duration days:", 0);
+            var isRenewalAllowed = ConsoleInputValidator.ReadYesNo("Is renewal allowed?", defaultValue: false);
+            var maxRenewalTimes = ConsoleInputValidator.ReadInt("Enter max renewal times:", 0);
+            var maxRenewalDays = ConsoleInputValidator.ReadInt("Enter max renewal duration days:", 0);
+            var fee = ConsoleInputValidator.ReadDecimal("Enter membership fee:", 0m);
 
             _membershipService.UpdateMembership(membershipId, name, maxBooks, maxBorrowDays, isRenewalAllowed, maxRenewalTimes, maxRenewalDays, fee);
             Console.WriteLine("Membership updated.");
@@ -95,28 +91,43 @@ namespace BookLendingApp.Application.Member
 
         private void DeleteMembership()
         {
-            Console.WriteLine("Enter membership id:");
-            if (!Guid.TryParse(Console.ReadLine(), out var membershipId)) return;
+            var membershipId = PromptMembershipSelection();
+            if (membershipId == Guid.Empty) return;
             _membershipService.RemoveMembership(membershipId);
             Console.WriteLine("Membership deleted.");
         }
 
         private void UpdateMaxBooks()
         {
-            Console.WriteLine("Enter membership id:");
-            if (!Guid.TryParse(Console.ReadLine(), out var membershipId)) return;
-            Console.WriteLine("Enter new max books:");
-            int.TryParse(Console.ReadLine(), out var maxBooks);
+            var membershipId = PromptMembershipSelection();
+            if (membershipId == Guid.Empty) return;
+            var maxBooks = ConsoleInputValidator.ReadInt("Enter new max books:", 0);
             Console.WriteLine(_membershipService.UpdateMembershipMaxBooks(membershipId, maxBooks) ? "Updated." : "Update failed.");
         }
 
         private void UpdateDuration()
         {
-            Console.WriteLine("Enter membership id:");
-            if (!Guid.TryParse(Console.ReadLine(), out var membershipId)) return;
-            Console.WriteLine("Enter new duration days:");
-            int.TryParse(Console.ReadLine(), out var duration);
+            var membershipId = PromptMembershipSelection();
+            if (membershipId == Guid.Empty) return;
+            var duration = ConsoleInputValidator.ReadInt("Enter new duration days:", 0);
             Console.WriteLine(_membershipService.UpdateMembershipDuration(membershipId, duration) ? "Updated." : "Update failed.");
+        }
+
+        private Guid PromptMembershipSelection()
+        {
+            var memberships = _membershipService.GetAllMemberships() ?? new System.Collections.Generic.List<BookLendingApp.ModelLibrary.Models.MemberShip>();
+            if (memberships.Count == 0)
+            {
+                Console.WriteLine("No memberships found. Create one first.");
+                return Guid.Empty;
+            }
+
+            var selected = ConsoleInputValidator.PromptSelection(
+                "Select a membership:",
+                memberships,
+                membership => $"{membership.Name} | Books: {membership.MaxBooksAllowed} | Days: {membership.MaxBorrowDurationDays} | Renewal: {(membership.IsRenewalAllowed ? "Yes" : "No")}");
+
+            return selected.MemberShipId;
         }
     }
 }

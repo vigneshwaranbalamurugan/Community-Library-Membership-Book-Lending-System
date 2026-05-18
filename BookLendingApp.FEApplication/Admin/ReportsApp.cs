@@ -1,5 +1,6 @@
 using System;
 using BookLendingApp.Ballibrary.Interfaces;
+using BookLendingApp.FEApplication.Validation;
 
 namespace BookLendingApp.Application.Admin
 {
@@ -16,14 +17,16 @@ namespace BookLendingApp.Application.Admin
         {
             while (true)
             {
-                Console.WriteLine("Reports Menu:");
-                Console.WriteLine("1. Overdue Books");
+                Console.WriteLine("Reports:");
+                Console.WriteLine("1. Overdue books");
                 Console.WriteLine("2. Back");
 
-                switch (Console.ReadLine())
+                var choice = ConsoleInputValidator.ReadInt("Select an option:", 1, 2);
+
+                switch (choice)
                 {
-                    case "1": ShowOverdueBooks(); break;
-                    case "2": return;
+                    case 1: ShowOverdueBooks(); break;
+                    case 2: return;
                     default: Console.WriteLine("Invalid choice."); break;
                 }
             }
@@ -31,9 +34,16 @@ namespace BookLendingApp.Application.Admin
 
         private void ShowOverdueBooks()
         {
-            foreach (var record in _borrowingService.GetOverdueBorrowRecords())
+            var overdueRecords = _borrowingService.GetOverdueBorrowRecords();
+            if (overdueRecords.Count == 0)
             {
-                Console.WriteLine($"BorrowRecordId: {record.BorrowRecordId} | MemberId: {record.MemberId} | BookCopyId: {record.BookCopyId}");
+                Console.WriteLine("No overdue books found.");
+                return;
+            }
+
+            foreach (var record in overdueRecords)
+            {
+                Console.WriteLine($"Borrow: {record.BorrowRecordId} | Member: {record.MemberId} | Copy: {record.BookCopyId}");
             }
         }
     }

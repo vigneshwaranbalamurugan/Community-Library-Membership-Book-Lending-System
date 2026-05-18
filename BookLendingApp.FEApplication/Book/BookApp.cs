@@ -1,16 +1,19 @@
 using System;
 using BookLendingApp.Ballibrary.Interfaces;
 using BookLendingApp.ModelLibrary.Models;
+using BookLendingApp.FEApplication.Validation;
 
 namespace BookLendingApp.Application.Book
 {
     public class BookApp
     {
        private readonly IBookService _bookService;
+       private readonly IBookCategoryService _bookCategoryService;
 
-       public BookApp(IBookService bookService)
+       public BookApp(IBookService bookService, IBookCategoryService bookCategoryService)
        {
            _bookService = bookService;
+           _bookCategoryService = bookCategoryService;
        }
 
        public void BookMenu()
@@ -22,23 +25,23 @@ namespace BookLendingApp.Application.Book
            Console.WriteLine("4. Delete Book");
            Console.WriteLine("5. Back to Main Menu");
 
-           var choice = Console.ReadLine();
+           var choiceNumber = ConsoleInputValidator.ReadInt("Select an option:", 1, 5);
 
-           switch (choice)
+           switch (choiceNumber)
            {
-               case "1":
+               case 1:
                    AddBook();
                    break;
-               case "2":
+               case 2:
                    ViewBooks();
                    break;
-               case "3":
+               case 3:
                    UpdateBook();
                    break;
-               case "4":
+               case 4:
                    DeleteBook();
                    break;
-               case "5":
+               case 5:
                    return;
                default:
                    Console.WriteLine("Invalid choice. Please try again.");
@@ -48,34 +51,25 @@ namespace BookLendingApp.Application.Book
 
         private void AddBook()
         {
-            Console.WriteLine("Enter book title:");
-            var title = Console.ReadLine();
+            var title = ConsoleInputValidator.ReadRequiredString("Enter book title:");
 
-            Console.WriteLine("Enter book author:");
-            var author = Console.ReadLine();
+            var author = ConsoleInputValidator.ReadRequiredString("Enter book author:");
 
-            Console.WriteLine("Enter publication year (numbers only):");
-            var yearInput = Console.ReadLine();
-            int publicationYear = 0;
-            if (!int.TryParse(yearInput, out publicationYear))
-            {
-                Console.WriteLine("Invalid year entered, defaulting to 0.");
-            }
+            var publicationYear = ConsoleInputValidator.ReadInt("Enter publication year:", 1, 9999);
 
-            Console.WriteLine("Enter publisher:");
-            var publisher = Console.ReadLine();
+            var publisher = ConsoleInputValidator.ReadRequiredString("Enter publisher:");
 
-            Console.WriteLine("Enter category name:");
-            var categoryName = Console.ReadLine();
+            var categoryId = PromptCategorySelection();
+            if (categoryId == Guid.Empty) return;
+            var categoryName = _bookCategoryService.GetCategoryById(categoryId)?.Name ?? ConsoleInputValidator.ReadRequiredString("Enter category name:");
 
-            Console.WriteLine("Enter ISBN:");
-            var isbn = Console.ReadLine();
+            var isbn = ConsoleInputValidator.ReadRequiredString("Enter ISBN:");
 
-            _bookService.AddBook(title ?? string.Empty, author ?? string.Empty, publicationYear, publisher ?? string.Empty, categoryName ?? string.Empty, isbn ?? string.Empty);
+            _bookService.AddBook(title, author, publicationYear, publisher, categoryName, isbn);
             Console.WriteLine("Book added successfully.");
         }
         
-        private void ViewBooks()
+        public void ViewBooks()
         {
             try
             {
@@ -89,7 +83,7 @@ namespace BookLendingApp.Application.Book
                 Console.WriteLine("Books:");
                 foreach (var b in books)
                 {
-                    Console.WriteLine($"ID: {b.BookId} | Title: {b.Title} | Author: {b.Author} | Year: {b.PublicationYear} | Publisher: {b.Publisher} | ISBN: {b.ISBN} | CategoryId: {b.CategoryId}");
+                    Console.WriteLine($"Title: {b.Title} | Author: {b.Author} | Year: {b.PublicationYear} | Publisher: {b.Publisher} | ISBN: {b.ISBN} | CategoryId: {b.CategoryId}");
                 }
             }
             catch (Exception ex)
@@ -100,32 +94,23 @@ namespace BookLendingApp.Application.Book
 
         private void UpdateBook()
         {
-            Console.WriteLine("Enter ISBN of the book to update:");
-            var isbn = Console.ReadLine();
+            var isbn = ConsoleInputValidator.ReadRequiredString("Enter ISBN of the book to update:");
 
-            Console.WriteLine("Enter new title:");
-            var newTitle = Console.ReadLine();
+            var newTitle = ConsoleInputValidator.ReadRequiredString("Enter new title:");
 
-            Console.WriteLine("Enter new author:");
-            var newAuthor = Console.ReadLine();
+            var newAuthor = ConsoleInputValidator.ReadRequiredString("Enter new author:");
 
-            Console.WriteLine("Enter new publication year (numbers only):");
-            var yearInput = Console.ReadLine();
-            int newPublicationYear = 0;
-            if (!int.TryParse(yearInput, out newPublicationYear))
-            {
-                Console.WriteLine("Invalid year entered, defaulting to 0.");
-            }
+            var newPublicationYear = ConsoleInputValidator.ReadInt("Enter new publication year:", 1, 9999);
 
-            Console.WriteLine("Enter new publisher:");
-            var newPublisher = Console.ReadLine();
+            var newPublisher = ConsoleInputValidator.ReadRequiredString("Enter new publisher:");
 
-            Console.WriteLine("Enter new category name:");
-            var newCategoryName = Console.ReadLine();
+            var newCategoryId = PromptCategorySelection();
+            if (newCategoryId == Guid.Empty) return;
+            var newCategoryName = _bookCategoryService.GetCategoryById(newCategoryId)?.Name ?? ConsoleInputValidator.ReadRequiredString("Enter new category name:");
 
             try
             {
-                _bookService.UpdateBook(isbn ?? string.Empty, newTitle ?? string.Empty, newAuthor ?? string.Empty, newPublicationYear, newPublisher ?? string.Empty, newCategoryName ?? string.Empty);
+                _bookService.UpdateBook(isbn, newTitle, newAuthor, newPublicationYear, newPublisher, newCategoryName);
                 Console.WriteLine("Book updated successfully.");
             }
             catch (Exception ex)
@@ -136,12 +121,9 @@ namespace BookLendingApp.Application.Book
 
         private void DeleteBook()
         {
-            Console.WriteLine("Enter ISBN of the book to delete:");
-            var isbn = Console.ReadLine();
+            var isbn = ConsoleInputValidator.ReadRequiredString("Enter ISBN of the book to delete:");
 
-            Console.WriteLine("Are you sure you want to delete this book? (y/N)");
-            var confirm = Console.ReadLine();
-            if (string.IsNullOrWhiteSpace(confirm) || !confirm.Equals("y", StringComparison.OrdinalIgnoreCase))
+            if (!ConsoleInputValidator.ReadYesNo("Are you sure you want to delete this book?", defaultValue: false))
             {
                 Console.WriteLine("Delete cancelled.");
                 return;
@@ -149,7 +131,7 @@ namespace BookLendingApp.Application.Book
 
             try
             {
-                _bookService.RemoveBook(isbn ?? string.Empty);
+                _bookService.RemoveBook(isbn);
                 Console.WriteLine("Book deleted successfully.");
             }
             catch (Exception ex)
@@ -157,7 +139,23 @@ namespace BookLendingApp.Application.Book
                 Console.WriteLine($"Error deleting book: {ex.Message}");
             }
         }
-         
+
+        private Guid PromptCategorySelection()
+        {
+            var cats = _bookCategoryService.GetAllCategories() ?? new System.Collections.Generic.List<BookCategory>();
+            if (cats.Count == 0)
+            {
+                Console.WriteLine("No categories found. Create one first.");
+                return Guid.Empty;
+            }
+
+            var selected = ConsoleInputValidator.PromptSelection(
+                "Select a category:",
+                cats,
+                c => $"{c.Name} | {c.Description}");
+
+            return selected.CategoryId;
+        }
 
     }
 }
