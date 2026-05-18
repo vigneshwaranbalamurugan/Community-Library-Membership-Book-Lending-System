@@ -297,7 +297,10 @@ namespace BookLendingApp.Application.Admin
             return rule.FineCalculationType switch
             {
                 FineCalculationType.FlatFee => rule.Amount,
-                FineCalculationType.Percentage => (damagePercentage / 100m) * rule.Amount * ((rule.Percentage ?? 100m) / 100m),
+                FineCalculationType.Percentage =>
+                    rule.Percentage is > 0
+                        ? rule.Amount * (damagePercentage / rule.Percentage.Value)
+                        : rule.Amount * damagePercentage,
                 _ => rule.Amount
             };
         }

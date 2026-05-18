@@ -224,6 +224,16 @@ namespace BookLendingApp.DALLibrary.Contexts
 
                     membership.UpdatedAt = utcNow;
                     break;
+                case Payment payment:
+                    if (created)
+                    {
+                        payment.CreatedAt = utcNow;
+                    }
+                    payment.UpdatedAt = utcNow;
+                    break;
+                default:
+                    // If the entity doesn't have CreatedAt/UpdatedAt properties, do nothing
+                    break;
             }
         }
     }

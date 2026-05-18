@@ -26,6 +26,8 @@ namespace BookLendingApp.ModelLibrary.Models
         public Member? Member { get; set; }
 
         public BorrowRecord? BorrowRecord { get; set; }
+        public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+        public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
     }
 
     public class MembershipPayment : Payment
