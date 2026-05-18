@@ -12,6 +12,10 @@ namespace BookLendingApp.Ballibrary.Interfaces
         decimal GetUnpaidFine(Guid memberId);
         List<BorrowRecord> GetActiveBorrowRecords(Guid memberId);
         List<BorrowRecord> GetOverdueBorrowRecords();
+        List<BorrowRecord> GetAllActiveBorrowRecords();
+        List<MostBorrowedBook> GetMostBorrowedBooks(int topN = 10);
+        List<MemberPendingFine> GetMembersWithPendingFines();
+        List<BorrowRecord> GetBorrowHistoryByMember(Guid memberId);
         bool CanBorrow(Guid memberId, Guid bookId, out string validationMessage);
     }
 }

@@ -301,6 +301,71 @@ namespace BookLendingApp.Ballibrary.Services
             return _borrowRecordRepository.GetOverdueBorrowRecords();
         }
 
+        public List<BorrowRecord> GetAllActiveBorrowRecords()
+        {
+            var all = _borrowRecordRepository.GetAll();
+            return all.Where(r => r.BorrowStatus == BorrowStatus.Active).ToList();
+        }
+
+        public List<MostBorrowedBook> GetMostBorrowedBooks(int topN = 10)
+        {
+            var all = _borrowRecordRepository.GetAll();
+
+            var grouped = all
+                .Select(r => _bookCopyRepository.Get(r.BookCopyId))
+                .Where(bc => bc != null)
+                .Select(bc => bc!) // assert non-null after filter for the compiler
+                .GroupBy(bc => bc.BookId)
+                .Select(g => new { BookId = g.Key, Count = g.LongCount() })
+                .OrderByDescending(x => x.Count)
+                .Take(topN)
+                .ToList();
+
+            var result = new List<MostBorrowedBook>();
+            foreach (var item in grouped)
+            {
+                var book = _bookRepository.Get(item.BookId);
+                if (book == null) continue;
+                result.Add(new MostBorrowedBook
+                {
+                    BookId = book.BookId,
+                    Title = book.Title,
+                    Author = book.Author,
+                    Isbn = book.ISBN,
+                    BorrowCount = item.Count
+                });
+            }
+
+            return result;
+        }
+
+        public List<MemberPendingFine> GetMembersWithPendingFines()
+        {
+            var members = _memberRepository.GetAll();
+            var list = new List<MemberPendingFine>();
+            foreach (var m in members)
+            {
+                var unpaid = GetUnpaidFine(m.MemberId);
+                if (unpaid > 0)
+                {
+                    list.Add(new MemberPendingFine
+                    {
+                        MemberId = m.MemberId,
+                        FullName = m.FullName,
+                        EmailId = m.EmailId,
+                        UnpaidAmount = unpaid
+                    });
+                }
+            }
+
+            return list.OrderByDescending(x => x.UnpaidAmount).ToList();
+        }
+
+        public List<BorrowRecord> GetBorrowHistoryByMember(Guid memberId)
+        {
+            return _borrowRecordRepository.GetBorrowRecordsByMember(memberId);
+        }
+
         public bool CanBorrow(Guid memberId, Guid bookId, out string validationMessage)
         {
             validationMessage = string.Empty;

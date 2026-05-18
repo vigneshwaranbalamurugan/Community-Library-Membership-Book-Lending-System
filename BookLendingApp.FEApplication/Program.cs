@@ -79,7 +79,7 @@ namespace BookLendingApp.FEApplication
             _borrowApp = new BorrowApp(_borrowingService, _bookCopyService, _bookService, _bookCategoryService, _session);
             _fineManagementApp = new FineManagementApp(_fineManagementService, _session);
             _fineRuleApp = new FineRuleApp(_fineRuleService);
-            _reportsApp = new ReportsApp(_borrowingService);
+            _reportsApp = new ReportsApp(_borrowingService, _memberService, _bookService, _bookCopyService, _bookCategoryService);
             _adminBorrowApp = new AdminBorrowApp(_borrowingService, _memberService, _bookCopyService, _bookService, _fineManagementService, _paymentRepository, _fineRuleService);
         }
 
