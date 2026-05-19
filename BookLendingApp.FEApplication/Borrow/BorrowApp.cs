@@ -31,19 +31,42 @@ namespace BookLendingApp.Application.Borrow
             while (true)
             {
                 ConsoleUi.WriteTitle("Borrow Menu");
-                ConsoleUi.WriteMenuOptions(new[] { "Borrow Book", "Borrow by Category", "My Borrowing Summary", "Back" });
+                ConsoleUi.WriteMenuOptions(new[] { "Borrow Book", "Borrow by Category", "My Borrowing Summary", "My Profile", "Back" });
 
-                var choice = ConsoleInputValidator.ReadInt("Select an option:", 1, 4);
+                var choice = ConsoleInputValidator.ReadInt("Select an option:", 1, 5);
 
                 switch (choice)
                 {
                     case 1: BorrowBook(); break;
                     case 2: BorrowBookByCategory(); break;
                     case 3: MemberSummary(); break;
-                    case 4: return;
+                    case 4: ViewMyProfile(); break;
+                    case 5: return;
                     default: ConsoleUi.WriteError("Invalid choice."); ConsoleUi.Pause(); break;
                 }
             }
+        }
+
+        private void ViewMyProfile()
+        {
+            if (!TryGetCurrentMember(out var member)) return;
+
+            ConsoleUi.WriteTitle("My Profile");
+
+            var categories = _bookCategoryService.GetAllCategories() ?? new List<BookCategory>();
+            var memberships = (_bookService.GetAllBooks() != null) ? "Standard" : "N/A"; 
+            // Better to show the details we have in the member object
+
+            var rows = new System.Collections.Generic.List<string>
+            {
+                $"Field: Full Name | Details: {member.FullName}",
+                $"Field: Email ID | Details: {member.EmailId}",
+                $"Field: Mobile | Details: {member.MobileNumber ?? "Not Provided"}",
+                $"Field: Status | Details: {(member.IsActive ? "Active" : "Inactive")}",
+            };
+
+            ConsoleUi.WriteTable(rows);
+            ConsoleUi.Pause();
         }
 
         private void BorrowBook()

@@ -92,6 +92,11 @@ namespace BookLendingApp.FEApplication
 
         private void Run()
         {
+            ConsoleUi.WriteTitle("WELCOME TO LIBRARY MANAGEMENT SYSTEM");
+            ConsoleUi.WriteInfo($"Today's Date: {DateTime.Now:D}");
+            ConsoleUi.WriteInfo("Please log in to continue.");
+            ConsoleUi.Pause();
+
             while (true)
             {
                 ConsoleUi.WriteTitle("Authentication");
@@ -113,6 +118,9 @@ namespace BookLendingApp.FEApplication
                         }
                         break;
                     case 3:
+                        Console.Clear();
+                        ConsoleUi.WriteTitle("THANK YOU FOR USING THE LIBRARY");
+                        ConsoleUi.WriteSuccess("Exiting application... Have a great day!");
                         return;
                 }
             }
@@ -131,8 +139,6 @@ namespace BookLendingApp.FEApplication
             }
 
             _session.LoginAsAdmin();
-            ConsoleUi.WriteSuccess("Admin login successful.");
-            ConsoleUi.Pause();
             return true;
         }
 
@@ -145,7 +151,6 @@ namespace BookLendingApp.FEApplication
             {
                 var member = _authService.AuthenticateMember(email, password);
                 _session.LoginAsMember(member);
-                ConsoleUi.WriteSuccess($"Welcome, {member.FullName}.");
                 return true;
             }
             catch (Exception ex)
@@ -158,6 +163,9 @@ namespace BookLendingApp.FEApplication
 
         private void RunAdminMenu()
         {
+            ConsoleUi.WriteSuccess("\nHello, Administrator! Login successful.");
+            ConsoleUi.Pause();
+
             while (_session.IsAdmin)
             {
                 ConsoleUi.WriteTitle("Admin Menu");
@@ -184,13 +192,22 @@ namespace BookLendingApp.FEApplication
                     case 6: _adminBorrowApp.BorrowManagementMenu(); break;
                     case 7: _fineRuleApp.FineRuleMenu(); break;
                     case 8: _reportsApp.ReportsMenu(); break;
-                    case 9: _session.Logout(); break;
+                    case 9: 
+                        _session.Logout(); 
+                        ConsoleUi.WriteInfo("Logging out...");
+                        ConsoleUi.WriteSuccess("Goodbye, Administrator! logged out successfully.");
+                        ConsoleUi.Pause();
+                        break;
                 }
             }
         }
 
         private void RunUserMenu()
         {
+            var member = _session.CurrentMember;
+            ConsoleUi.WriteSuccess($"\nWelcome back, {member?.FullName}! Login successful.");
+            ConsoleUi.Pause();
+
             while (_session.IsMember)
             {
                 ConsoleUi.WriteTitle("User Menu");
@@ -204,7 +221,12 @@ namespace BookLendingApp.FEApplication
                     case 3: _bookApp.SearchBooks(); break;
                     case 4: _borrowApp.BorrowMenu(); break;
                     case 5: _fineManagementApp.FineMenu(); break;
-                    case 6: _session.Logout(); break;
+                    case 6: 
+                        _session.Logout();
+                        ConsoleUi.WriteInfo("Logging out...");
+                        ConsoleUi.WriteSuccess($"Goodbye, {member?.FullName}! Have a nice day.");
+                        ConsoleUi.Pause();
+                        break;
                 }
             }
         }
