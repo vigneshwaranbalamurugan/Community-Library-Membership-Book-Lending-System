@@ -316,27 +316,32 @@ namespace BookLendingApp.FEApplication.Validation
 
         public static T PromptSelection<T>(string title, IReadOnlyList<T> items, Func<T, string> formatter)
         {
-            if (items.Count == 0)
+            if (items == null || items.Count == 0)
             {
                 throw new InvalidSelectionException(title);
             }
 
-            Console.WriteLine(title);
-            for (var index = 0; index < items.Count; index++)
+            // Construct table rows for selection
+            var rows = new List<string>();
+            foreach (var item in items)
             {
-                Console.WriteLine($"{index + 1}. {formatter(items[index])}");
+                rows.Add(formatter(item));
             }
+
+            // Use ConsoleUi to display the options formatted as a table
+            BookLendingApp.FEApplication.Common.ConsoleUi.WriteInfo(title + ":");
+            BookLendingApp.FEApplication.Common.ConsoleUi.WriteTable(rows, showIndices: true);
 
             while (true)
             {
-                Console.WriteLine("Enter choice number:");
+                BookLendingApp.FEApplication.Common.ConsoleUi.WriteInfo("Enter choice number:");
                 var input = Console.ReadLine();
                 if (int.TryParse(input, NumberStyles.Integer, CultureInfo.InvariantCulture, out var selection) && selection >= 1 && selection <= items.Count)
                 {
                     return items[selection - 1];
                 }
 
-                Console.WriteLine("Invalid selection.");
+                BookLendingApp.FEApplication.Common.ConsoleUi.WriteError("Invalid selection.");
             }
         }
 

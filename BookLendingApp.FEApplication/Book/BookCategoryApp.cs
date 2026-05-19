@@ -1,6 +1,7 @@
 using System;
 using BookLendingApp.Ballibrary.Interfaces;
 using BookLendingApp.FEApplication.Validation;
+using BookLendingApp.FEApplication.Common;
 
 namespace BookLendingApp.Application.Book
 {
@@ -17,12 +18,8 @@ namespace BookLendingApp.Application.Book
 		{
 			while (true)
 			{
-				Console.WriteLine("Category Menu:");
-				Console.WriteLine("1. Add Category");
-				Console.WriteLine("2. View Categories");
-				Console.WriteLine("3. Update Category");
-				Console.WriteLine("4. Delete Category");
-				Console.WriteLine("5. Back");
+				ConsoleUi.WriteTitle("Category Menu");
+				ConsoleUi.WriteMenuOptions(new[] { "Add Category", "View Categories", "Update Category", "Delete Category", "Back" });
 
 					var choiceNumber = ConsoleInputValidator.ReadInt("Select an option:", 1, 5);
 
@@ -33,7 +30,7 @@ namespace BookLendingApp.Application.Book
 					case 3: UpdateCategory(); break;
 					case 4: DeleteCategory(); break;
 					case 5: return;
-					default: Console.WriteLine("Invalid choice."); break;
+					default: ConsoleUi.WriteError("Invalid choice."); ConsoleUi.Pause(); break;
 				}
 			}
 		}
@@ -46,11 +43,13 @@ namespace BookLendingApp.Application.Book
 				try
 				{
 					_bookCategoryService.AddCategory(name, desc);
-					Console.WriteLine("Category added.");
+					ConsoleUi.WriteSuccess("Category added.");
+					ConsoleUi.Pause();
 				}
 			catch (Exception ex)
 			{
-				Console.WriteLine($"Error adding category: {ex.Message}");
+					ConsoleUi.WriteError($"Error adding category: {ex.Message}");
+					ConsoleUi.Pause();
 			}
 		}
 
@@ -61,17 +60,22 @@ namespace BookLendingApp.Application.Book
 				var cats = _bookCategoryService.GetAllCategories();
 				if (cats == null || cats.Count == 0)
 				{
-					Console.WriteLine("No categories found.");
+					ConsoleUi.WriteInfo("No categories found.");
+					ConsoleUi.Pause();
 					return;
 				}
+				var rows = new System.Collections.Generic.List<string>();
 				foreach (var c in cats)
 				{
-					Console.WriteLine($"ID: {c.CategoryId} | Name: {c.Name} | Description: {c.Description}");
+					rows.Add($"ID: {c.CategoryId} | Name: {c.Name} | Description: {c.Description}");
 				}
+				ConsoleUi.WriteTable(rows);
+				ConsoleUi.Pause();
 			}
 			catch (Exception ex)
 			{
-				Console.WriteLine($"Error retrieving categories: {ex.Message}");
+				ConsoleUi.WriteError($"Error retrieving categories: {ex.Message}");
+				ConsoleUi.Pause();
 			}
 		}
 
@@ -86,11 +90,12 @@ namespace BookLendingApp.Application.Book
 			var existing = _bookCategoryService.GetCategoryById(id);
 			if (existing == null)
 			{
-				Console.WriteLine("Category not found.");
+				ConsoleUi.WriteError("Category not found.");
+				ConsoleUi.Pause();
 				return;
 			}
 
-			Console.WriteLine($"Current values: Name={existing.Name}, Description={existing.Description}");
+			ConsoleUi.WriteInfo($"Current values: Name={existing.Name}, Description={existing.Description}");
 
 			var name = ConsoleInputValidator.ReadRequiredStringWithDefault("Enter new name", existing.Name);
 			var desc = ConsoleInputValidator.ReadOptionalStringWithDefault("Enter new description (optional)", existing.Description);
@@ -98,11 +103,13 @@ namespace BookLendingApp.Application.Book
 				try
 				{
 					_bookCategoryService.UpdateCategory(id, name, desc);
-					Console.WriteLine("Category updated.");
+					ConsoleUi.WriteSuccess("Category updated.");
+					ConsoleUi.Pause();
 				}
 				catch (Exception ex)
 				{
-					Console.WriteLine($"Error updating category: {ex.Message}");
+					ConsoleUi.WriteError($"Error updating category: {ex.Message}");
+					ConsoleUi.Pause();
 				}
 			}
 
@@ -112,19 +119,22 @@ namespace BookLendingApp.Application.Book
 
 			if (!ConsoleInputValidator.ReadYesNo("Are you sure?", defaultValue: false))
 			{
-				Console.WriteLine("Cancelled.");
+				ConsoleUi.WriteInfo("Cancelled.");
+				ConsoleUi.Pause();
 				return;
 			}
 
 			try
 			{
 				_bookCategoryService.RemoveCategory(id);
-				Console.WriteLine("Category deleted.");
+				ConsoleUi.WriteSuccess("Category deleted.");
 			}
 			catch (Exception ex)
 			{
-				Console.WriteLine($"Error deleting category: {ex.Message}");
+				ConsoleUi.WriteError($"Cannot delete category: {ex.Message}");
+				ConsoleUi.WriteInfo("Note: Ensure no books are currently assigned to this category.");
 			}
+			ConsoleUi.Pause();
 		}
 
 		private Guid PromptCategorySelection()
@@ -132,14 +142,15 @@ namespace BookLendingApp.Application.Book
 			var cats = _bookCategoryService.GetAllCategories();
 			if (cats == null || cats.Count == 0)
 			{
-				Console.WriteLine("No categories found.");
+				ConsoleUi.WriteInfo("No categories found.");
+				ConsoleUi.Pause();
 				return Guid.Empty;
 			}
 
 			var selected = ConsoleInputValidator.PromptSelection(
 				"Select a category:",
 				cats,
-				c => $"{c.Name} | {c.Description}");
+				c => $"Name: {c.Name} | Description: {c.Description}");
 
 			return selected.CategoryId;
 		}

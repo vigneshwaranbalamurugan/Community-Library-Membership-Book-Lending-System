@@ -2,6 +2,7 @@ using System;
 using BookLendingApp.Ballibrary.Interfaces;
 using BookLendingApp.ModelLibrary.Enums;
 using BookLendingApp.FEApplication.Validation;
+using BookLendingApp.FEApplication.Common;
 
 namespace BookLendingApp.Application.Payment
 {
@@ -18,15 +19,10 @@ namespace BookLendingApp.Application.Payment
         {
             while (true)
             {
-                Console.WriteLine("Fine Rules:");
-                Console.WriteLine("1. Add new rule");
-                Console.WriteLine("2. List rules");
-                Console.WriteLine("3. Edit rule");
-                Console.WriteLine("4. Remove rule");
-                Console.WriteLine("5. Filter by type");
-                Console.WriteLine("6. Back");
+            ConsoleUi.WriteTitle("Fine Rules");
+            ConsoleUi.WriteMenuOptions(new[] { "Add new rule", "List rules", "Edit rule", "Remove rule", "Filter by type", "Back" });
 
-                var choice = ConsoleInputValidator.ReadInt("Select an option:", 1, 6);
+            var choice = ConsoleInputValidator.ReadInt("Select an option:", 1, 6);
 
                 switch (choice)
                 {
@@ -36,7 +32,7 @@ namespace BookLendingApp.Application.Payment
                     case 4: DeleteFineRule(); break;
                     case 5: ViewByFineType(); break;
                     case 6: return;
-                    default: Console.WriteLine("Invalid choice."); break;
+                    default: ConsoleUi.WriteError("Invalid choice."); break;
                 }
             }
         }
@@ -56,7 +52,8 @@ namespace BookLendingApp.Application.Payment
             }
 
             _fineRuleService.AddFineRule(fineType, name, calculationType, amount, description, percentageValue);
-            Console.WriteLine("Fine rule added.");
+            ConsoleUi.WriteSuccess("Fine rule added.");
+            ConsoleUi.Pause();
         }
 
         private void ViewFineRules()
@@ -64,14 +61,18 @@ namespace BookLendingApp.Application.Payment
             var rules = _fineRuleService.GetAllFineRules() ?? new System.Collections.Generic.List<BookLendingApp.ModelLibrary.Models.FineRule>();
             if (rules.Count == 0)
             {
-                Console.WriteLine("No fine rules found.");
+                ConsoleUi.WriteInfo("No fine rules found.");
+                ConsoleUi.Pause();
                 return;
             }
 
+            var rows = new System.Collections.Generic.List<string>();
             foreach (var rule in rules)
             {
-                Console.WriteLine($"ID: {rule.FineAmountId} | {rule.Name} | Type: {rule.FineType} | Amount: {rule.Amount}");
+                rows.Add($"ID: {rule.FineAmountId} | Name: {rule.Name} | Type: {rule.FineType} | Amount: {rule.Amount}");
             }
+            ConsoleUi.WriteTable(rows);
+            ConsoleUi.Pause();
         }
 
         private void UpdateFineRule()
@@ -85,11 +86,11 @@ namespace BookLendingApp.Application.Payment
             var existing = _fineRuleService.GetFineRuleById(fineRuleId);
             if (existing == null)
             {
-                Console.WriteLine("Fine rule not found.");
+                ConsoleUi.WriteError("Fine rule not found.");
                 return;
             }
 
-            Console.WriteLine($"Current values: Type={existing.FineType}, Name={existing.Name}, CalcType={existing.FineCalculationType}, Amount={existing.Amount}, Description={existing.Description}, Percentage={existing.Percentage}");
+            ConsoleUi.WriteInfo($"Current values: Type={existing.FineType}, Name={existing.Name}, CalcType={existing.FineCalculationType}, Amount={existing.Amount}, Description={existing.Description}, Percentage={existing.Percentage}");
 
             var fineType = ConsoleInputValidator.PromptEnumSelectionWithDefault("Select a fine type", existing.FineType);
             var name = ConsoleInputValidator.ReadRequiredStringWithDefault("Enter name", existing.Name);
@@ -104,7 +105,8 @@ namespace BookLendingApp.Application.Payment
             }
 
             _fineRuleService.UpdateFineRule(fineRuleId, fineType, name, calculationType, amount, description, percentageValue);
-            Console.WriteLine("Fine rule updated.");
+            ConsoleUi.WriteSuccess("Fine rule updated.");
+            ConsoleUi.Pause();
         }
 
         private void DeleteFineRule()
@@ -112,17 +114,30 @@ namespace BookLendingApp.Application.Payment
             var fineRuleId = PromptFineRuleSelection();
             if (fineRuleId == Guid.Empty) return;
 
-            _fineRuleService.RemoveFineRule(fineRuleId);
-            Console.WriteLine("Fine rule deleted.");
+            try
+            {
+                _fineRuleService.RemoveFineRule(fineRuleId);
+                ConsoleUi.WriteSuccess("Fine rule deleted.");
+            }
+            catch (Exception ex)
+            {
+                ConsoleUi.WriteError($"Cannot delete fine rule: {ex.Message}");
+                ConsoleUi.WriteInfo("Note: This rule might be required for existing fine calculations.");
+            }
+            ConsoleUi.Pause();
         }
 
         private void ViewByFineType()
         {
             var fineType = ConsoleInputValidator.PromptEnumSelection<FineType>("Select a fine type:");
-            foreach (var rule in _fineRuleService.GetFineRulesByFineType(fineType))
+            var list = _fineRuleService.GetFineRulesByFineType(fineType);
+            var rows = new System.Collections.Generic.List<string>();
+            foreach (var rule in list)
             {
-                Console.WriteLine($"ID: {rule.FineAmountId} | Name: {rule.Name} | Amount: {rule.Amount}");
+                rows.Add($"ID: {rule.FineAmountId} | Name: {rule.Name} | Amount: {rule.Amount}");
             }
+            ConsoleUi.WriteTable(rows);
+            ConsoleUi.Pause();
         }
 
         private Guid PromptFineRuleSelection()
@@ -130,14 +145,14 @@ namespace BookLendingApp.Application.Payment
             var rules = _fineRuleService.GetAllFineRules();
             if (rules.Count == 0)
             {
-                Console.WriteLine("No fine rules found.");
+                ConsoleUi.WriteInfo("No fine rules found.");
                 return Guid.Empty;
             }
 
             var selected = ConsoleInputValidator.PromptSelection(
                 "Select a fine rule:",
                 rules,
-                r => $"{r.Name} | {r.FineType} | Amount: {r.Amount}");
+                r => $"Name: {r.Name} | Type: {r.FineType} | Amount: {r.Amount}");
 
             return selected.FineAmountId;
         }

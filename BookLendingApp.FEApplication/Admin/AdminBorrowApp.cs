@@ -3,6 +3,7 @@ using BookLendingApp.Ballibrary.Interfaces;
 using BookLendingApp.ModelLibrary.Enums;
 using BookLendingApp.ModelLibrary.Models;
 using BookLendingApp.FEApplication.Validation;
+using BookLendingApp.FEApplication.Common;
 using BookLendingApp.DALLibrary.Interfaces;
 using ModelMember = BookLendingApp.ModelLibrary.Models.Member;
 using ModelBook = BookLendingApp.ModelLibrary.Models.Book;
@@ -42,11 +43,8 @@ namespace BookLendingApp.Application.Admin
         {
             while (true)
             {
-                Console.WriteLine("Borrow Management Menu:");
-                Console.WriteLine("1. View Active Borrows");
-                Console.WriteLine("2. Process Return");
-                Console.WriteLine("3. View Overdue Books");
-                Console.WriteLine("4. Back");
+                ConsoleUi.WriteTitle("Borrow Management");
+                ConsoleUi.WriteMenuOptions(new[] { "View Active Borrows", "Process Return", "View Overdue Books", "Back" });
 
                 var choice = ConsoleInputValidator.ReadInt("Select an option:", 1, 4);
 
@@ -56,7 +54,7 @@ namespace BookLendingApp.Application.Admin
                     case 2: ProcessReturn(); break;
                     case 3: ViewOverdueBooks(); break;
                     case 4: return;
-                    default: Console.WriteLine("Invalid choice."); break;
+                    default: ConsoleUi.WriteError("Invalid choice."); ConsoleUi.Pause(); break;
                 }
             }
         }
@@ -66,26 +64,28 @@ namespace BookLendingApp.Application.Admin
             var members = _memberService.GetAllMembers() ?? new List<ModelMember>();
             if (members.Count == 0)
             {
-                Console.WriteLine("No members found.");
+                ConsoleUi.WriteInfo("No members found.");
+                ConsoleUi.Pause();
                 return;
             }
 
             var selectedMember = ConsoleInputValidator.PromptSelection<ModelMember>(
                 "Select a member:",
                 members,
-                m => $"{m.FullName} | {m.EmailId}");
+                m => $"Name: {m.FullName} | Email: {m.EmailId}");
 
             var activeBorrows = _borrowingService.GetActiveBorrowRecords(selectedMember.MemberId) ?? new List<BorrowRecord>();
             if (activeBorrows.Count == 0)
             {
-                Console.WriteLine($"No active borrows for {selectedMember.FullName}.");
+                ConsoleUi.WriteInfo($"No active borrows for {selectedMember.FullName}.");
+                ConsoleUi.Pause();
                 return;
             }
 
             var books = _bookService.GetAllBooks() ?? new List<ModelBook>();
             var bookMap = books.ToDictionary(b => b.BookId, b => b);
 
-            Console.WriteLine($"\nActive Borrows for {selectedMember.FullName}:");
+            var rows = new System.Collections.Generic.List<string>();
             foreach (var borrow in activeBorrows)
             {
                 var bookCopy = _bookCopyService.GetBookCopyById(borrow.BookCopyId);
@@ -96,8 +96,10 @@ namespace BookLendingApp.Application.Admin
                 var isOverdue = DateTime.UtcNow.Date > dueDate.Date;
                 var condition = bookCopy?.DamagePercentage > 0 ? $" | Damage: {bookCopy.DamagePercentage}%" : "";
 
-                Console.WriteLine($"  ID: {borrow.BorrowRecordId} | Book: {title} ({author}) | Borrowed: {borrow.BorrowDate:d} | Due: {dueDate:d}{condition}{(isOverdue ? " [OVERDUE]" : "")}");
+                rows.Add($"ID: {borrow.BorrowRecordId} | Book: {title} ({author}) | Borrowed: {borrow.BorrowDate:d} | Due: {dueDate:d}{condition}{(isOverdue ? " [OVERDUE]" : "")}");
             }
+            ConsoleUi.WriteTable(rows);
+            ConsoleUi.Pause();
         }
 
         private void ProcessReturn()
@@ -105,19 +107,21 @@ namespace BookLendingApp.Application.Admin
             var members = _memberService.GetAllMembers() ?? new List<ModelMember>();
             if (members.Count == 0)
             {
-                Console.WriteLine("No members found.");
+                ConsoleUi.WriteInfo("No members found.");
+                ConsoleUi.Pause();
                 return;
             }
 
             var selectedMember = ConsoleInputValidator.PromptSelection<ModelMember>(
                 "Select a member:",
                 members,
-                m => $"{m.FullName} | {m.EmailId}");
+                m => $"Name: {m.FullName} | Email: {m.EmailId}");
 
             var activeBorrows = _borrowingService.GetActiveBorrowRecords(selectedMember.MemberId) ?? new List<BorrowRecord>();
             if (activeBorrows.Count == 0)
             {
-                Console.WriteLine($"No active borrows for {selectedMember.FullName}.");
+                ConsoleUi.WriteInfo($"No active borrows for {selectedMember.FullName}.");
+                ConsoleUi.Pause();
                 return;
             }
 
@@ -128,10 +132,8 @@ namespace BookLendingApp.Application.Admin
 
             var returnDate = ConsoleInputValidator.ReadDateTime("Enter return date (yyyy-MM-dd):");
 
-            Console.WriteLine("\nReturn Status:");
-            Console.WriteLine("1. Returned in Good Condition");
-            Console.WriteLine("2. Returned Damaged");
-            Console.WriteLine("3. Lost");
+            ConsoleUi.WriteTitle("Return Status");
+            ConsoleUi.WriteMenuOptions(new[] { "Returned in Good Condition", "Returned Damaged", "Lost" });
 
             var statusChoice = ConsoleInputValidator.ReadInt("Select status:", 1, 3);
 
@@ -174,6 +176,12 @@ namespace BookLendingApp.Application.Admin
             {
                 // Process the return with damage percentage
                 var returnedBorrow = _borrowingService.ReturnBook(selectedBorrow.BorrowRecordId, returnDate, damagePercentage);
+                if (returnedBorrow == null)
+                {
+                    ConsoleUi.WriteError("Return processing failed. The record may not exist or the operation was rejected.");
+                    ConsoleUi.Pause();
+                    return;
+                }
 
                 // If book is lost, mark it as Lost instead of deletion
                 if (damagePercentage >= 100)
@@ -210,7 +218,8 @@ namespace BookLendingApp.Application.Admin
                     }
                 }
 
-                Console.WriteLine("Return processed successfully.");
+                ConsoleUi.WriteSuccess("Return processed successfully.");
+                ConsoleUi.Pause();
 
                 // Apply additional fine for damage/loss if needed
                 if (additionalFine > 0)
@@ -243,15 +252,16 @@ namespace BookLendingApp.Application.Admin
                     }
 
                     _paymentRepository.Create(payment);
-                    Console.WriteLine($"Additional fine applied: ₹{additionalFine} ({notes})");
+                    ConsoleUi.WriteInfo($"Additional fine applied: ₹{additionalFine} ({notes})");
                 }
-
-                Console.WriteLine($"Notes: {notes}");
-                Console.WriteLine($"Total fine pending: ₹{_borrowingService.GetUnpaidFine(selectedMember.MemberId)}");
+                ConsoleUi.WriteInfo($"Notes: {notes}");
+                ConsoleUi.WriteInfo($"Total fine pending: ₹{_borrowingService.GetUnpaidFine(selectedMember.MemberId)}");
+                ConsoleUi.Pause();
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Error processing return: {ex.Message}");
+                ConsoleUi.WriteError($"Error processing return: {ex.Message}");
+                ConsoleUi.Pause();
             }
         }
 
@@ -260,7 +270,8 @@ namespace BookLendingApp.Application.Admin
             var overdueRecords = _borrowingService.GetOverdueBorrowRecords();
             if (overdueRecords.Count == 0)
             {
-                Console.WriteLine("No overdue books found.");
+                ConsoleUi.WriteInfo("No overdue books found.");
+                ConsoleUi.Pause();
                 return;
             }
 
@@ -270,7 +281,7 @@ namespace BookLendingApp.Application.Admin
             var books = _bookService.GetAllBooks() ?? new List<ModelBook>();
             var bookMap = books.ToDictionary(b => b.BookId, b => b);
 
-            Console.WriteLine("Overdue Books:");
+            var rows = new System.Collections.Generic.List<string>();
             foreach (var record in overdueRecords)
             {
                 var member = memberMap.TryGetValue(record.MemberId, out var m) ? m : null;
@@ -285,11 +296,10 @@ namespace BookLendingApp.Application.Admin
                 var daysOverdue = (int)(DateTime.UtcNow.Date - dueDate.Date).TotalDays;
                 var lateFine = daysOverdue * 10m;
 
-                Console.WriteLine($"  Member: {memberName} ({memberEmail})");
-                Console.WriteLine($"  Book: {title} | Copy ID: {bookCopy?.BookCopyId}");
-                Console.WriteLine($"  Due Date: {dueDate:d} | Days Overdue: {daysOverdue} | Late Fine: ₹{lateFine}");
-                Console.WriteLine();
+                rows.Add($"Member: {memberName} ({memberEmail}) | Book: {title} | Copy ID: {bookCopy?.BookCopyId} | Due Date: {dueDate:d} | Days Overdue: {daysOverdue} | Late Fine: ₹{lateFine}");
             }
+            ConsoleUi.WriteTable(rows);
+            ConsoleUi.Pause();
         }
 
         private decimal CalculateFine(decimal damagePercentage, FineRule rule)

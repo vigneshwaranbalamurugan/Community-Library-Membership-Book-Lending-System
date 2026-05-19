@@ -4,6 +4,7 @@ using BookLendingApp.ModelLibrary.Enums;
 using BookLendingApp.ModelLibrary.Models;
 using BookLendingApp.FEApplication.Security;
 using BookLendingApp.FEApplication.Validation;
+using BookLendingApp.FEApplication.Common;
 using ModelMember = BookLendingApp.ModelLibrary.Models.Member;
 
 namespace BookLendingApp.Application.Borrow
@@ -29,11 +30,8 @@ namespace BookLendingApp.Application.Borrow
         {
             while (true)
             {
-                Console.WriteLine("Borrow Menu:");
-                Console.WriteLine("1. Borrow Book");
-                Console.WriteLine("2. Borrow by Category");
-                Console.WriteLine("3. My Borrowing Summary");
-                Console.WriteLine("4. Back");
+                ConsoleUi.WriteTitle("Borrow Menu");
+                ConsoleUi.WriteMenuOptions(new[] { "Borrow Book", "Borrow by Category", "My Borrowing Summary", "Back" });
 
                 var choice = ConsoleInputValidator.ReadInt("Select an option:", 1, 4);
 
@@ -43,7 +41,7 @@ namespace BookLendingApp.Application.Borrow
                     case 2: BorrowBookByCategory(); break;
                     case 3: MemberSummary(); break;
                     case 4: return;
-                    default: Console.WriteLine("Invalid choice."); break;
+                    default: ConsoleUi.WriteError("Invalid choice."); ConsoleUi.Pause(); break;
                 }
             }
         }
@@ -52,17 +50,65 @@ namespace BookLendingApp.Application.Borrow
         {
             if (!TryGetCurrentMember(out var member)) return;
 
-            var bookCopyId = PromptAvailableBookCopySelection();
-            if (bookCopyId == Guid.Empty) return;
+            // 1. Select Book first
+            var books = _bookService.GetAllBooks() ?? new List<BookLendingApp.ModelLibrary.Models.Book>();
+            if (books.Count == 0)
+            {
+                ConsoleUi.WriteInfo("No books available in the library.");
+                ConsoleUi.Pause();
+                return;
+            }
+
+            var categories = _bookCategoryService.GetAllCategories() ?? new List<BookCategory>();
+            var categoryMap = categories.ToDictionary(c => c.CategoryId, c => c.Name);
+
+            var selectedBook = ConsoleInputValidator.PromptSelection(
+                "Select a book to borrow:",
+                books,
+                book =>
+                {
+                    var catName = categoryMap.TryGetValue(book.CategoryId, out var name) ? name : "N/A";
+                    return $"Title: {book.Title} | Author: {book.Author} | Category: {catName} | ISBN: {book.ISBN}";
+                });
+
+            // 2. Select available copy for that book
+            var availableCopies = _bookCopyService.GetAvailableCopiesByBookId(selectedBook.BookId) ?? new List<BookCopy>();
+            if (availableCopies.Count == 0)
+            {
+                ConsoleUi.WriteError($"No available copies for '{selectedBook.Title}'.");
+                ConsoleUi.Pause();
+                return;
+            }
+
+            var selectedCopy = ConsoleInputValidator.PromptSelection(
+                "Select a copy:",
+                availableCopies,
+                copy => $"Barcode: {copy.Barcode} | Shelf: {copy.ShelfLocation} | Status: {copy.Status} | Damage: {copy.DamagePercentage}%");
 
             try
             {
-                var borrow = _borrowingService.BorrowBook(member.MemberId, bookCopyId);
-                Console.WriteLine($"Borrowed. BorrowRecordId: {borrow.BorrowRecordId}");
+                if (!_borrowingService.CanBorrow(member.MemberId, selectedBook.BookId, out var validationMessage))
+                {
+                    ConsoleUi.WriteError($"Cannot borrow: {validationMessage}");
+                    ConsoleUi.Pause();
+                    return;
+                }
+
+                var borrow = _borrowingService.BorrowBook(member.MemberId, selectedCopy.BookCopyId);
+                if (borrow == null)
+                {
+                    ConsoleUi.WriteError("Borrowing failed. You may have pending fines or borrowing limits.");
+                    ConsoleUi.Pause();
+                    return;
+                }
+
+                ConsoleUi.WriteSuccess($"Success! Book borrowed. Due date: {borrow.BorrowDate.AddDays(7):d}");
+                ConsoleUi.Pause();
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Borrow failed: {ex.Message}");
+                ConsoleUi.WriteError($"Borrow failed: {ex.Message}");
+                ConsoleUi.Pause();
             }
         }
 
@@ -72,9 +118,24 @@ namespace BookLendingApp.Application.Borrow
             if (!TryGetCurrentMember(out var member)) return;
 
             var summary = _borrowingService.GetMemberBorrowingSummary(member.MemberId);
-            Console.WriteLine($"Active borrows: {summary.ActiveBorrows}");
-            Console.WriteLine($"Returned borrows: {summary.ReturnedBorrows}");
-            Console.WriteLine($"Unpaid fine: ₹{summary.TotalUnpaidFine}");
+            
+            ConsoleUi.WriteTitle("My Borrowing Summary");
+            
+            var rows = new System.Collections.Generic.List<string>
+            {
+                $"Metric: Active Borrowings | Count: {summary.ActiveBorrows}",
+                $"Metric: Returned Books | Count: {summary.ReturnedBorrows}",
+                $"Metric: Total Unpaid Fine | Count: ₹{summary.TotalUnpaidFine:N2}"
+            };
+
+            ConsoleUi.WriteTable(rows);
+            
+            if (summary.TotalUnpaidFine > 0)
+            {
+                ConsoleUi.WriteError("\nYou have pending fines. Please settle them at the Payment counter.");
+            }
+            
+            ConsoleUi.Pause();
         }
 
         private void BorrowBookByCategory()
@@ -82,11 +143,12 @@ namespace BookLendingApp.Application.Borrow
             if (!TryGetCurrentMember(out var member)) return;
 
             var categories = _bookCategoryService.GetAllCategories() ?? new List<BookCategory>();
-            if (categories.Count == 0)
-            {
-                Console.WriteLine("No categories found.");
-                return;
-            }
+                if (categories.Count == 0)
+                {
+                    ConsoleUi.WriteInfo("No categories found.");
+                    ConsoleUi.Pause();
+                    return;
+                }
 
             var selectedCategory = ConsoleInputValidator.PromptSelection(
                 "Select a category:",
@@ -94,37 +156,62 @@ namespace BookLendingApp.Application.Borrow
                 category => category.Name);
 
             var availableBooks = _borrowingService.GetAvailableBooksByCategory(selectedCategory.CategoryId);
-            if (availableBooks.Count == 0)
-            {
-                Console.WriteLine("No available books found for this category.");
-                return;
-            }
+                if (availableBooks.Count == 0)
+                {
+                    ConsoleUi.WriteInfo("No available books found for this category.");
+                    ConsoleUi.Pause();
+                    return;
+                }
 
             var selectedBook = ConsoleInputValidator.PromptSelection(
                 "Select a book:",
                 availableBooks,
-                book => $"{book.Title} | {book.Author} | ISBN: {book.Isbn} | Available copies: {book.AvailableCopies}");
+                book => $"Title: {book.Title} | Author: {book.Author} | ISBN: {book.Isbn} | Available copies: {book.AvailableCopies}");
 
             var availableCopies = _bookCopyService.GetAvailableCopiesByBookId(selectedBook.BookId) ?? new List<BookCopy>();
-            if (availableCopies.Count == 0)
-            {
-                Console.WriteLine("No available copies found for this book.");
-                return;
-            }
+                if (availableCopies.Count == 0)
+                {
+                    ConsoleUi.WriteInfo("No available copies found for this book.");
+                    ConsoleUi.Pause();
+                    return;
+                }
 
             var selectedCopy = ConsoleInputValidator.PromptSelection(
                 "Select a copy:",
                 availableCopies,
-                copy => $"Barcode: {copy.Barcode} | Shelf: {copy.ShelfLocation}");
+                copy => $"Barcode: {copy.Barcode} | Shelf: {copy.ShelfLocation} | Status: {copy.Status}");
 
             try
             {
+                var copy = _bookCopyService.GetBookCopyById(selectedCopy.BookCopyId);
+                if (copy == null)
+                {
+                    ConsoleUi.WriteError("Selected book copy was not found.");
+                    ConsoleUi.Pause();
+                    return;
+                }
+
+                if (!_borrowingService.CanBorrow(member.MemberId, copy.BookId, out var validationMessage))
+                {
+                    ConsoleUi.WriteError($"Cannot borrow: {validationMessage}");
+                    ConsoleUi.Pause();
+                    return;
+                }
+
                 var borrow = _borrowingService.BorrowBook(member.MemberId, selectedCopy.BookCopyId);
-                Console.WriteLine($"Borrowed. BorrowRecordId: {borrow.BorrowRecordId}");
+                if (borrow == null)
+                {
+                    ConsoleUi.WriteError("Borrowing failed. You may have pending fines or borrowing limits.");
+                    ConsoleUi.Pause();
+                    return;
+                }
+
+                ConsoleUi.WriteSuccess($"Borrowed. BorrowRecordId: {borrow.BorrowRecordId}");
+                ConsoleUi.Pause();
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Borrow failed: {ex.Message}");
+                ConsoleUi.WriteError($"Borrow failed: {ex.Message}");
             }
         }
 
@@ -141,7 +228,8 @@ namespace BookLendingApp.Application.Borrow
 
             if (copies.Count == 0)
             {
-                Console.WriteLine("No available book copies found.");
+                ConsoleUi.WriteInfo("No available book copies found.");
+                ConsoleUi.Pause();
                 return Guid.Empty;
             }
 
@@ -170,7 +258,8 @@ namespace BookLendingApp.Application.Borrow
                 return true;
             }
 
-            Console.WriteLine("Please sign in as a user to access borrowing features.");
+            ConsoleUi.WriteInfo("Please sign in as a user to access borrowing features.");
+            ConsoleUi.Pause();
             return false;
         }
     }

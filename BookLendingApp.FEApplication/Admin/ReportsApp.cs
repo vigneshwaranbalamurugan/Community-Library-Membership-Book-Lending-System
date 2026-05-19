@@ -4,6 +4,7 @@ using System.Linq;
 using BookLendingApp.Ballibrary.Interfaces;
 using BookLendingApp.ModelLibrary.Models;
 using BookLendingApp.FEApplication.Validation;
+using BookLendingApp.FEApplication.Common;
 using ModelMember = BookLendingApp.ModelLibrary.Models.Member;
 using ModelBook = BookLendingApp.ModelLibrary.Models.Book;
 
@@ -30,14 +31,8 @@ namespace BookLendingApp.Application.Admin
         {
             while (true)
             {
-                Console.WriteLine("Reports Menu:");
-                Console.WriteLine("1. Books currently borrowed");
-                Console.WriteLine("2. Overdue books");
-                Console.WriteLine("3. Members with pending fines");
-                Console.WriteLine("4. Most borrowed books");
-                Console.WriteLine("5. Available books by category");
-                Console.WriteLine("6. Member borrowing history");
-                Console.WriteLine("7. Back");
+                ConsoleUi.WriteTitle("Reports Menu");
+                ConsoleUi.WriteMenuOptions(new[] { "Books currently borrowed", "Overdue books", "Members with pending fines", "Most borrowed books", "Available books by category", "Member borrowing history", "Back" });
 
                 var choice = ConsoleInputValidator.ReadInt("Select an option:", 1, 7);
                 switch (choice)
@@ -58,7 +53,8 @@ namespace BookLendingApp.Application.Admin
             var records = _borrowingService.GetAllActiveBorrowRecords();
             if (records == null || records.Count == 0)
             {
-                Console.WriteLine("No books are currently borrowed.");
+                ConsoleUi.WriteInfo("No books are currently borrowed.");
+                ConsoleUi.Pause();
                 return;
             }
 
@@ -68,15 +64,17 @@ namespace BookLendingApp.Application.Admin
             var books = _bookService.GetAllBooks() ?? new List<ModelBook>();
             var bookMap = books.ToDictionary(b => b.BookId, b => b);
 
-            Console.WriteLine("Books currently borrowed:");
+            var rows = new System.Collections.Generic.List<string>();
             foreach (var r in records)
             {
                 var member = memberMap.TryGetValue(r.MemberId, out var m) ? m : null;
                 var copy = _bookCopyService.GetBookCopyById(r.BookCopyId);
                 var book = copy != null && bookMap.TryGetValue(copy.BookId, out var b) ? b : null;
                 var dueDate = r.BorrowDate.AddDays(r.RenewalDays);
-                Console.WriteLine($"Book: {book?.Title ?? "Unknown"} | Member: {member?.FullName ?? "Unknown"} |Member Mobile: {member?.MobileNumber ?? "N/A"}| Due: {dueDate:d} | Copy ID: {r.BookCopyId}");
+                rows.Add($"Book: {book?.Title ?? "Unknown"} | Member: {member?.FullName ?? "Unknown"} | Member Mobile: {member?.MobileNumber ?? "N/A"} | Due: {dueDate:d} | Copy ID: {r.BookCopyId}");
             }
+            ConsoleUi.WriteTable(rows);
+            ConsoleUi.Pause();
         }
 
         private void ShowOverdueBooks()
@@ -84,7 +82,8 @@ namespace BookLendingApp.Application.Admin
             var records = _borrowingService.GetOverdueBorrowRecords();
             if (records == null || records.Count == 0)
             {
-                Console.WriteLine("No overdue books.");
+                ConsoleUi.WriteInfo("No overdue books.");
+                ConsoleUi.Pause();
                 return;
             }
 
@@ -94,7 +93,7 @@ namespace BookLendingApp.Application.Admin
             var books = _bookService.GetAllBooks() ?? new List<ModelBook>();
             var bookMap = books.ToDictionary(b => b.BookId, b => b);
 
-            Console.WriteLine("Overdue Books:");
+            var rows = new System.Collections.Generic.List<string>();
             foreach (var r in records)
             {
                 var member = memberMap.TryGetValue(r.MemberId, out var m) ? m : null;
@@ -102,11 +101,10 @@ namespace BookLendingApp.Application.Admin
                 var book = copy != null && bookMap.TryGetValue(copy.BookId, out var b) ? b : null;
                 var dueDate = r.BorrowDate.AddDays(r.RenewalDays);
                 var daysOverdue = (int)(DateTime.UtcNow.Date - dueDate.Date).TotalDays;
-                Console.WriteLine($"Member: {member?.FullName ?? "Unknown"} | Email: {member?.EmailId ?? "N/A"} | Mobile: {member?.MobileNumber ?? "N/A"}");
-                Console.WriteLine($"  Book: {book?.Title ?? "Unknown"} | Copy: {r.BookCopyId}");
-                Console.WriteLine($"  Due: {dueDate:d} | Days overdue: {daysOverdue}");
-                Console.WriteLine();
+                rows.Add($"Member: {member?.FullName ?? "Unknown"} | Email: {member?.EmailId ?? "N/A"} | Mobile: {member?.MobileNumber ?? "N/A"} | Book: {book?.Title ?? "Unknown"} | Copy: {r.BookCopyId} | Due: {dueDate:d} | Days overdue: {daysOverdue}");
             }
+            ConsoleUi.WriteTable(rows);
+            ConsoleUi.Pause();
         }
 
         private void ShowMembersWithPendingFines()
@@ -114,15 +112,18 @@ namespace BookLendingApp.Application.Admin
             var list = _borrowingService.GetMembersWithPendingFines();
             if (list == null || list.Count == 0)
             {
-                Console.WriteLine("No members with pending fines.");
+                ConsoleUi.WriteInfo("No members with pending fines.");
+                ConsoleUi.Pause();
                 return;
             }
 
-            Console.WriteLine("Members with pending fines:");
+            var rows = new System.Collections.Generic.List<string>();
             foreach (var m in list)
             {
-                Console.WriteLine($"{m.FullName} | {m.EmailId} | Pending: ₹{m.UnpaidAmount}");
+                rows.Add($"Name: {m.FullName} | Email: {m.EmailId} | Pending: ₹{m.UnpaidAmount}");
             }
+            ConsoleUi.WriteTable(rows);
+            ConsoleUi.Pause();
         }
 
         private void ShowMostBorrowedBooks()
@@ -131,15 +132,18 @@ namespace BookLendingApp.Application.Admin
             var list = _borrowingService.GetMostBorrowedBooks(top);
             if (list == null || list.Count == 0)
             {
-                Console.WriteLine("No borrowing data available.");
+                ConsoleUi.WriteInfo("No borrowing data available.");
+                ConsoleUi.Pause();
                 return;
             }
 
-            Console.WriteLine($"Top {list.Count} most borrowed books:");
+            var rows = new System.Collections.Generic.List<string>();
             foreach (var b in list)
             {
-                Console.WriteLine($"{b.Title} | {b.Author} | ISBN: {b.Isbn} | Borrowed: {b.BorrowCount}");
+                rows.Add($"Title: {b.Title} | Author: {b.Author} | ISBN: {b.Isbn} | Borrowed: {b.BorrowCount}");
             }
+            ConsoleUi.WriteTable(rows);
+            ConsoleUi.Pause();
         }
 
         private void ShowAvailableBooksByCategory()
@@ -147,22 +151,26 @@ namespace BookLendingApp.Application.Admin
             var categories = _bookCategoryService.GetAllCategories();
             if (categories == null || categories.Count == 0)
             {
-                Console.WriteLine("No categories found.");
+                ConsoleUi.WriteInfo("No categories found.");
+                ConsoleUi.Pause();
                 return;
             }
             var category = ConsoleInputValidator.PromptSelection("Select a category:", categories, c => c.Name);
             var available = _borrowingService.GetAvailableBooksByCategory(category.CategoryId);
             if (available == null || available.Count == 0)
             {
-                Console.WriteLine("No available books in this category.");
+                ConsoleUi.WriteInfo("No available books in this category.");
+                ConsoleUi.Pause();
                 return;
             }
 
-            Console.WriteLine($"Available books in {category.Name}:");
+            var rows = new System.Collections.Generic.List<string>();
             foreach (var a in available)
             {
-                Console.WriteLine($"{a.Title} | {a.Author} | ISBN: {a.Isbn} | Available Copies: {a.AvailableCopies}");
+                rows.Add($"Title: {a.Title} | Author: {a.Author} | ISBN: {a.Isbn} | Available Copies: {a.AvailableCopies}");
             }
+            ConsoleUi.WriteTable(rows);
+            ConsoleUi.Pause();
         }
 
         private void ShowMemberBorrowingHistory()
@@ -170,7 +178,8 @@ namespace BookLendingApp.Application.Admin
             var members = _memberService.GetAllMembers() ?? new List<ModelMember>();
             if (members.Count == 0)
             {
-                Console.WriteLine("No members found.");
+                ConsoleUi.WriteInfo("No members found.");
+                ConsoleUi.Pause();
                 return;
             }
 
@@ -178,20 +187,23 @@ namespace BookLendingApp.Application.Admin
             var history = _borrowingService.GetBorrowHistoryByMember(member.MemberId);
             if (history == null || history.Count == 0)
             {
-                Console.WriteLine("No borrowing history for this member.");
+                ConsoleUi.WriteInfo("No borrowing history for this member.");
+                ConsoleUi.Pause();
                 return;
             }
 
             var books = _bookService.GetAllBooks() ?? new List<ModelBook>();
             var bookMap = books.ToDictionary(b => b.BookId, b => b);
 
-            Console.WriteLine($"Borrowing history for {member.FullName}:");
+            var rows = new System.Collections.Generic.List<string>();
             foreach (var r in history)
             {
                 var copy = _bookCopyService.GetBookCopyById(r.BookCopyId);
                 var book = copy != null && bookMap.TryGetValue(copy.BookId, out var b) ? b : null;
-                Console.WriteLine($"ID: {r.BorrowRecordId} | Book: {book?.Title ?? "Unknown"} | Borrowed: {r.BorrowDate:d} | Returned: {(r.ReturnDate.HasValue ? r.ReturnDate.Value.ToString("d") : "Not returned")}");
+                rows.Add($"ID: {r.BorrowRecordId} | Book: {book?.Title ?? "Unknown"} | Borrowed: {r.BorrowDate:d} | Returned: {(r.ReturnDate.HasValue ? r.ReturnDate.Value.ToString("d") : "Not returned")}");
             }
+            ConsoleUi.WriteTable(rows);
+            ConsoleUi.Pause();
         }
     }
-    }
+}

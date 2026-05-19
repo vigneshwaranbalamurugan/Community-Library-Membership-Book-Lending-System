@@ -3,6 +3,7 @@ using BookLendingApp.Ballibrary.Interfaces;
 using BookLendingApp.ModelLibrary.Models;
 using BookLendingApp.FEApplication.Security;
 using BookLendingApp.FEApplication.Validation;
+using BookLendingApp.FEApplication.Common;
 using ModelMember = BookLendingApp.ModelLibrary.Models.Member;
 using ModelPayment = BookLendingApp.ModelLibrary.Models.Payment;
 
@@ -23,11 +24,8 @@ namespace BookLendingApp.Application.Payment
         {
             while (true)
             {
-                Console.WriteLine("Fine Menu:");
-                Console.WriteLine("1. View Pending Fines");
-                Console.WriteLine("2. Pay Fine");
-                Console.WriteLine("3. Fine History");
-                Console.WriteLine("4. Back");
+                ConsoleUi.WriteTitle("Fine Menu");
+                ConsoleUi.WriteMenuOptions(new[] { "View Pending Fines", "Pay Fine", "Fine History", "Back" });
 
                 var choice = ConsoleInputValidator.ReadInt("Select an option:", 1, 4);
 
@@ -37,7 +35,7 @@ namespace BookLendingApp.Application.Payment
                     case 2: PayFine(); break;
                     case 3: FineHistory(); break;
                     case 4: return;
-                    default: Console.WriteLine("Invalid choice."); break;
+                    default: ConsoleUi.WriteError("Invalid choice."); ConsoleUi.Pause(); break;
                 }
             }
         }
@@ -49,15 +47,19 @@ namespace BookLendingApp.Application.Payment
             var pending = _fineManagementService.GetPendingFines(member.MemberId) ?? new System.Collections.Generic.List<ModelPayment>();
             if (pending.Count == 0)
             {
-                Console.WriteLine("No pending fines found.");
+                ConsoleUi.WriteInfo("No pending fines found.");
+                ConsoleUi.Pause();
                 return;
             }
 
+            var rows = new System.Collections.Generic.List<string>();
             foreach (var payment in pending)
             {
-                Console.WriteLine($"PaymentId: {payment.PaymentId} | Amount: {payment.Amount} | Type: {payment.PaymentType} | Paid: {payment.IsPaid}");
+                rows.Add($"PaymentId: {payment.PaymentId} | Amount: {payment.Amount} | Type: {payment.PaymentType} | Paid: {payment.IsPaid}");
             }
-            Console.WriteLine($"Total pending: ₹{_fineManagementService.GetPendingFineTotal(member.MemberId)}");
+            ConsoleUi.WriteTable(rows);
+            ConsoleUi.WriteInfo($"Total pending: ₹{_fineManagementService.GetPendingFineTotal(member.MemberId)}");
+            ConsoleUi.Pause();
         }
 
         private void PayFine()
@@ -67,7 +69,8 @@ namespace BookLendingApp.Application.Payment
             var pending = _fineManagementService.GetPendingFines(member.MemberId) ?? new System.Collections.Generic.List<ModelPayment>();
             if (pending.Count == 0)
             {
-                Console.WriteLine("No pending fines to pay.");
+                ConsoleUi.WriteInfo("No pending fines to pay.");
+                ConsoleUi.Pause();
                 return;
             }
 
@@ -77,7 +80,9 @@ namespace BookLendingApp.Application.Payment
                 payment => $"PaymentId: {payment.PaymentId} | Amount: {payment.Amount} | Type: {payment.PaymentType}");
 
             var paymentId = selected.PaymentId;
-            Console.WriteLine(_fineManagementService.PayFine(paymentId) ? "Fine paid." : "Payment not found.");
+            var ok = _fineManagementService.PayFine(paymentId);
+            ConsoleUi.WriteInfo(ok ? "Fine paid." : "Payment not found.");
+            ConsoleUi.Pause();
         }
 
         private void FineHistory()
@@ -87,14 +92,18 @@ namespace BookLendingApp.Application.Payment
             var history = _fineManagementService.GetFineHistory(member.MemberId) ?? new System.Collections.Generic.List<ModelPayment>();
             if (history.Count == 0)
             {
-                Console.WriteLine("No fine history found.");
+                ConsoleUi.WriteInfo("No fine history found.");
+                ConsoleUi.Pause();
                 return;
             }
 
+            var rows = new System.Collections.Generic.List<string>();
             foreach (var payment in history)
             {
-                Console.WriteLine($"PaymentId: {payment.PaymentId} | Amount: {payment.Amount} | Type: {payment.PaymentType} | Paid: {payment.IsPaid}");
+                rows.Add($"PaymentId: {payment.PaymentId} | Amount: {payment.Amount} | Type: {payment.PaymentType} | Paid: {payment.IsPaid}");
             }
+            ConsoleUi.WriteTable(rows);
+            ConsoleUi.Pause();
         }
 
         private bool TryGetCurrentMember(out ModelMember member)
@@ -105,7 +114,8 @@ namespace BookLendingApp.Application.Payment
                 return true;
             }
 
-            Console.WriteLine("Please sign in as a user to access fine management.");
+            ConsoleUi.WriteInfo("Please sign in as a user to access fine management.");
+            ConsoleUi.Pause();
             return false;
         }
     }

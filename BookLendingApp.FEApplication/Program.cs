@@ -6,6 +6,7 @@ using BookLendingApp.Application.Borrow;
 using BookLendingApp.Application.Payment;
 using BookLendingApp.Application.Admin;
 using BookLendingApp.FEApplication.Validation;
+using BookLendingApp.FEApplication.Common;
 using BookLendingApp.FEApplication.Security;
 using BookLendingApp.DALLibrary.Contexts;
 using BookLendingApp.DALLibrary.Interfaces;
@@ -75,7 +76,7 @@ namespace BookLendingApp.FEApplication
             _bookApp = new BookApp(_bookService, _bookCategoryService);
             _memberApp = new MemberApp(_memberService, _membershipService);
             _membershipApp = new MembershipApp(_membershipService);
-            _bookCopyApp = new BookCopyApp(_bookService, _bookCopyService);
+            _bookCopyApp = new BookCopyApp(_bookService, _bookCopyService, _bookCategoryService);
             _borrowApp = new BorrowApp(_borrowingService, _bookCopyService, _bookService, _bookCategoryService, _session);
             _fineManagementApp = new FineManagementApp(_fineManagementService, _session);
             _fineRuleApp = new FineRuleApp(_fineRuleService);
@@ -93,10 +94,8 @@ namespace BookLendingApp.FEApplication
         {
             while (true)
             {
-                Console.WriteLine("Authentication:");
-                Console.WriteLine("1. Admin Login");
-                Console.WriteLine("2. User Login");
-                Console.WriteLine("3. Exit");
+                ConsoleUi.WriteTitle("Authentication");
+                ConsoleUi.WriteMenuOptions(new[] { "Admin Login", "User Login", "Exit" });
 
                 var choice = ConsoleInputValidator.ReadInt("Select an option:", 1, 3);
                 switch (choice)
@@ -126,12 +125,14 @@ namespace BookLendingApp.FEApplication
 
             if (!_authService.ValidateAdmin(username, password))
             {
-                Console.WriteLine("Invalid admin credentials.");
+                ConsoleUi.WriteError("Invalid admin credentials.");
+                ConsoleUi.Pause();
                 return false;
             }
 
             _session.LoginAsAdmin();
-            Console.WriteLine("Admin login successful.");
+            ConsoleUi.WriteSuccess("Admin login successful.");
+            ConsoleUi.Pause();
             return true;
         }
 
@@ -144,12 +145,13 @@ namespace BookLendingApp.FEApplication
             {
                 var member = _authService.AuthenticateMember(email, password);
                 _session.LoginAsMember(member);
-                Console.WriteLine($"Welcome, {member.FullName}.");
+                ConsoleUi.WriteSuccess($"Welcome, {member.FullName}.");
                 return true;
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Login failed: {ex.Message}");
+                ConsoleUi.WriteError($"Login failed: {ex.Message}");
+                ConsoleUi.Pause();
                 return false;
             }
         }
@@ -158,16 +160,18 @@ namespace BookLendingApp.FEApplication
         {
             while (_session.IsAdmin)
             {
-                Console.WriteLine("Admin Menu:");
-                Console.WriteLine("1. Books");
-                Console.WriteLine("2. Categories");
-                Console.WriteLine("3. Members");
-                Console.WriteLine("4. Memberships");
-                Console.WriteLine("5. Book Copies");
-                Console.WriteLine("6. Borrow Management");
-                Console.WriteLine("7. Fine Rules");
-                Console.WriteLine("8. Reports");
-                Console.WriteLine("9. Logout");
+                ConsoleUi.WriteTitle("Admin Menu");
+                ConsoleUi.WriteMenuOptions(new[] {
+                    "Books",
+                    "Categories",
+                    "Members",
+                    "Memberships",
+                    "Book Copies",
+                    "Borrow Management",
+                    "Fine Rules",
+                    "Reports",
+                    "Logout"
+                });
 
                 var choice = ConsoleInputValidator.ReadInt("Select an option:", 1, 9);
                 switch (choice)
@@ -189,19 +193,18 @@ namespace BookLendingApp.FEApplication
         {
             while (_session.IsMember)
             {
-                Console.WriteLine("User Menu:");
-                Console.WriteLine("1. View Books");
-                Console.WriteLine("2. Borrow / Return / Renew");
-                Console.WriteLine("3. My Fines");
-                Console.WriteLine("4. Logout");
+                ConsoleUi.WriteTitle("User Menu");
+                ConsoleUi.WriteMenuOptions(new[] { "View All Books", "View Books By Category", "Search Books", "Borrow / Return / Renew", "My Fines", "Logout" });
 
-                var choice = ConsoleInputValidator.ReadInt("Select an option:", 1, 4);
+                var choice = ConsoleInputValidator.ReadInt("Select an option:", 1, 6);
                 switch (choice)
                 {
                     case 1: _bookApp.ViewBooks(); break;
-                    case 2: _borrowApp.BorrowMenu(); break;
-                    case 3: _fineManagementApp.FineMenu(); break;
-                    case 4: _session.Logout(); break;
+                    case 2: _bookApp.ViewBooksByCategory(); break;
+                    case 3: _bookApp.SearchBooks(); break;
+                    case 4: _borrowApp.BorrowMenu(); break;
+                    case 5: _fineManagementApp.FineMenu(); break;
+                    case 6: _session.Logout(); break;
                 }
             }
         }

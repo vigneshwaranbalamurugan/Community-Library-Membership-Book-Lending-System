@@ -2,6 +2,7 @@ using System;
 using BookLendingApp.Ballibrary.Interfaces;
 using BookLendingApp.ModelLibrary.Models;
 using BookLendingApp.FEApplication.Validation;
+using BookLendingApp.FEApplication.Common;
 
 namespace BookLendingApp.Application.Book
 {
@@ -18,34 +19,27 @@ namespace BookLendingApp.Application.Book
 
        public void BookMenu()
        {
-           Console.WriteLine("Book Menu:");
-           Console.WriteLine("1. Add Book");
-           Console.WriteLine("2. View Books");
-           Console.WriteLine("3. Update Book");
-           Console.WriteLine("4. Delete Book");
-           Console.WriteLine("5. Back to Main Menu");
-
-           var choiceNumber = ConsoleInputValidator.ReadInt("Select an option:", 1, 5);
-
-           switch (choiceNumber)
+           while (true)
            {
-               case 1:
-                   AddBook();
-                   break;
-               case 2:
-                   ViewBooks();
-                   break;
-               case 3:
-                   UpdateBook();
-                   break;
-               case 4:
-                   DeleteBook();
-                   break;
-               case 5:
-                   return;
-               default:
-                   Console.WriteLine("Invalid choice. Please try again.");
-                   break;
+               ConsoleUi.WriteTitle("Book Menu");
+               ConsoleUi.WriteMenuOptions(new[] { "Add Book", "View All Books", "View Books By Category", "Search Books", "Update Book", "Delete Book", "Back" });
+
+               var choiceNumber = ConsoleInputValidator.ReadInt("Select an option:", 1, 7);
+
+               switch (choiceNumber)
+               {
+                   case 1: AddBook(); break;
+                   case 2: ViewBooks(); break;
+                   case 3: ViewBooksByCategory(); break;
+                   case 4: SearchBooks(); break;
+                   case 5: UpdateBook(); break;
+                   case 6: DeleteBook(); break;
+                   case 7: return;
+                   default:
+                       ConsoleUi.WriteError("Invalid choice. Please try again.");
+                       ConsoleUi.Pause();
+                       break;
+               }
            }
        }
 
@@ -66,7 +60,8 @@ namespace BookLendingApp.Application.Book
             var isbn = ConsoleInputValidator.ReadRequiredString("Enter ISBN:");
 
             _bookService.AddBook(title, author, publicationYear, publisher, categoryName, isbn);
-            Console.WriteLine("Book added successfully.");
+            ConsoleUi.WriteSuccess("Book added successfully.");
+            ConsoleUi.Pause();
         }
         
         public void ViewBooks()
@@ -76,19 +71,16 @@ namespace BookLendingApp.Application.Book
                 var books = _bookService.GetAllBooks();
                 if (books == null || books.Count == 0)
                 {
-                    Console.WriteLine("No books found.");
+                    ConsoleUi.WriteInfo("No books found.");
+                    ConsoleUi.Pause();
                     return;
                 }
-
-                Console.WriteLine("Books:");
-                foreach (var b in books)
-                {
-                    Console.WriteLine($"Title: {b.Title} | Author: {b.Author} | Year: {b.PublicationYear} | Publisher: {b.Publisher} | ISBN: {b.ISBN} | CategoryId: {b.CategoryId}");
-                }
+                DisplayBooks(books);
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Error retrieving books: {ex.Message}");
+                ConsoleUi.WriteError($"Error retrieving books: {ex.Message}");
+                ConsoleUi.Pause();
             }
         }
 
@@ -100,14 +92,15 @@ namespace BookLendingApp.Application.Book
             var existingBook = books.FirstOrDefault(book => book.ISBN.Equals(isbn, StringComparison.OrdinalIgnoreCase));
             if (existingBook == null)
             {
-                Console.WriteLine("Book not found for the given ISBN.");
+                ConsoleUi.WriteError("Book not found for the given ISBN.");
+                ConsoleUi.Pause();
                 return;
             }
 
             var currentCategory = _bookCategoryService.GetCategoryById(existingBook.CategoryId);
             var currentCategoryName = currentCategory?.Name ?? string.Empty;
 
-            Console.WriteLine($"Current values: Title={existingBook.Title}, Author={existingBook.Author}, Year={existingBook.PublicationYear}, Publisher={existingBook.Publisher}, Category={currentCategoryName}");
+            ConsoleUi.WriteInfo($"Current values: Title={existingBook.Title}, Author={existingBook.Author}, Year={existingBook.PublicationYear}, Publisher={existingBook.Publisher}, Category={currentCategoryName}");
 
             var newTitle = ConsoleInputValidator.ReadRequiredStringWithDefault("Enter new title", existingBook.Title);
 
@@ -128,11 +121,13 @@ namespace BookLendingApp.Application.Book
             try
             {
                 _bookService.UpdateBook(isbn, newTitle, newAuthor, newPublicationYear, newPublisher, newCategoryName);
-                Console.WriteLine("Book updated successfully.");
+                ConsoleUi.WriteSuccess("Book updated successfully.");
+                ConsoleUi.Pause();
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Error updating book: {ex.Message}");
+                ConsoleUi.WriteError($"Error updating book: {ex.Message}");
+                ConsoleUi.Pause();
             }
         }
 
@@ -142,19 +137,22 @@ namespace BookLendingApp.Application.Book
 
             if (!ConsoleInputValidator.ReadYesNo("Are you sure you want to delete this book?", defaultValue: false))
             {
-                Console.WriteLine("Delete cancelled.");
+                ConsoleUi.WriteInfo("Delete cancelled.");
+                ConsoleUi.Pause();
                 return;
             }
 
             try
             {
                 _bookService.RemoveBook(isbn);
-                Console.WriteLine("Book deleted successfully.");
+                ConsoleUi.WriteSuccess("Book deleted successfully.");
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Error deleting book: {ex.Message}");
+                ConsoleUi.WriteError($"Cannot delete book: {ex.Message}");
+                ConsoleUi.WriteInfo("Note: Ensure no copies or active borrows are linked to this book.");
             }
+            ConsoleUi.Pause();
         }
 
         private Guid PromptCategorySelection()
@@ -162,16 +160,84 @@ namespace BookLendingApp.Application.Book
             var cats = _bookCategoryService.GetAllCategories() ?? new System.Collections.Generic.List<BookCategory>();
             if (cats.Count == 0)
             {
-                Console.WriteLine("No categories found. Create one first.");
+                ConsoleUi.WriteInfo("No categories found. Create one first.");
+                ConsoleUi.Pause();
                 return Guid.Empty;
             }
 
             var selected = ConsoleInputValidator.PromptSelection(
                 "Select a category:",
                 cats,
-                c => $"{c.Name} | {c.Description}");
+                c => $"Name: {c.Name} | Description: {c.Description}");
 
             return selected.CategoryId;
+        }
+
+        public void ViewBooksByCategory()
+        {
+            var categoryId = PromptCategorySelection();
+            if (categoryId == Guid.Empty) return;
+
+            var allBooks = _bookService.GetAllBooks() ?? new List<BookLendingApp.ModelLibrary.Models.Book>();
+            var filtered = allBooks.Where(b => b.CategoryId == categoryId).ToList();
+
+            if (filtered.Count == 0)
+            {
+                ConsoleUi.WriteInfo("No books found in this category.");
+                ConsoleUi.Pause();
+                return;
+            }
+
+            DisplayBooks(filtered);
+        }
+
+        public void SearchBooks()
+        {
+            ConsoleUi.WriteTitle("Search Books");
+            ConsoleUi.WriteMenuOptions(new[] { "Search by Title", "Search by Author", "Search by Year", "Cancel" });
+            var choice = ConsoleInputValidator.ReadInt("Select search criteria:", 1, 4);
+            if (choice == 4) return;
+
+            var allBooks = _bookService.GetAllBooks() ?? new List<BookLendingApp.ModelLibrary.Models.Book>();
+            List<BookLendingApp.ModelLibrary.Models.Book> results;
+
+            switch (choice)
+            {
+                case 1:
+                    var title = ConsoleInputValidator.ReadRequiredString("Enter title keyword:");
+                    results = allBooks.Where(b => b.Title.Contains(title, StringComparison.OrdinalIgnoreCase)).ToList();
+                    break;
+                case 2:
+                    var author = ConsoleInputValidator.ReadRequiredString("Enter author name:");
+                    results = allBooks.Where(b => b.Author.Contains(author, StringComparison.OrdinalIgnoreCase)).ToList();
+                    break;
+                case 3:
+                    var year = ConsoleInputValidator.ReadInt("Enter publication year:", 1, 9999);
+                    results = allBooks.Where(b => b.PublicationYear == year).ToList();
+                    break;
+                default:
+                    return;
+            }
+
+            if (results.Count == 0)
+            {
+                ConsoleUi.WriteInfo("No matching books found.");
+                ConsoleUi.Pause();
+                return;
+            }
+
+            DisplayBooks(results);
+        }
+
+        private void DisplayBooks(IEnumerable<BookLendingApp.ModelLibrary.Models.Book> books)
+        {
+            var rows = new List<string>();
+            foreach (var b in books)
+            {
+                rows.Add($"Title: {b.Title} | Author: {b.Author} | Year: {b.PublicationYear} | Publisher: {b.Publisher} | ISBN: {b.ISBN} | CategoryId: {b.CategoryId}");
+            }
+            ConsoleUi.WriteTable(rows);
+            ConsoleUi.Pause();
         }
 
     }

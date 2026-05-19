@@ -1,6 +1,7 @@
 using System;
 using BookLendingApp.Ballibrary.Interfaces;
 using BookLendingApp.FEApplication.Validation;
+using BookLendingApp.FEApplication.Common;
 
 namespace BookLendingApp.Application.Member
 {
@@ -19,17 +20,19 @@ namespace BookLendingApp.Application.Member
         {
             while (true)
             {
-                Console.WriteLine("Member Menu:");
-                Console.WriteLine("1. Add Member");
-                Console.WriteLine("2. View Members");
-                Console.WriteLine("3. Update Member");
-                Console.WriteLine("4. Delete Member");
-                Console.WriteLine("5. View Active Members");
-                Console.WriteLine("6. Update Membership");
-                Console.WriteLine("7. Update Status");
-                Console.WriteLine("8. Search by Email");
-                Console.WriteLine("9. Search by Phone");
-                Console.WriteLine("10. Back");
+                ConsoleUi.WriteTitle("Member Menu");
+                ConsoleUi.WriteMenuOptions(new[] {
+                    "Add Member",
+                    "View Members",
+                    "Update Member",
+                    "Delete Member",
+                    "View Active Members",
+                    "Update Membership",
+                    "Update Status",
+                    "Search by Email",
+                    "Search by Phone",
+                    "Back"
+                });
 
                 var choice = ConsoleInputValidator.ReadInt("Select an option:", 1, 10);
 
@@ -45,7 +48,7 @@ namespace BookLendingApp.Application.Member
                     case 8: SearchByEmail(); break;
                     case 9: SearchByPhone(); break;
                     case 10: return;
-                    default: Console.WriteLine("Invalid choice."); break;
+                    default: ConsoleUi.WriteError("Invalid choice."); ConsoleUi.Pause(); break;
                 }
             }
         }
@@ -65,11 +68,13 @@ namespace BookLendingApp.Application.Member
             try
             {
                 _memberService.AddMember(fullName, email, password, membershipId, mobile);
-                Console.WriteLine("Member added.");
+                ConsoleUi.WriteSuccess("Member added.");
+                ConsoleUi.Pause();
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Error adding member: {ex.Message}");
+                ConsoleUi.WriteError($"Error adding member: {ex.Message}");
+                ConsoleUi.Pause();
             }
         }
 
@@ -80,18 +85,23 @@ namespace BookLendingApp.Application.Member
                 var members = _memberService.GetAllMembers();
                 if (members.Count == 0)
                 {
-                    Console.WriteLine("No members found.");
+                    ConsoleUi.WriteInfo("No members found.");
+                    ConsoleUi.Pause();
                     return;
                 }
 
+                var rows = new System.Collections.Generic.List<string>();
                 foreach (var member in members)
                 {
-                    Console.WriteLine($"ID: {member.MemberId} | Name: {member.FullName} | Email: {member.EmailId} | Active: {member.IsActive} | Mobile: {member.MobileNumber} | MembershipId: {member.MembershipId}");
+                    rows.Add($"ID: {member.MemberId} | Name: {member.FullName} | Email: {member.EmailId} | Active: {member.IsActive} | Mobile: {member.MobileNumber} | MembershipId: {member.MembershipId}");
                 }
+                ConsoleUi.WriteTable(rows);
+                ConsoleUi.Pause();
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Error retrieving members: {ex.Message}");
+                ConsoleUi.WriteError($"Error retrieving members: {ex.Message}");
+                ConsoleUi.Pause();
             }
         }
 
@@ -106,11 +116,11 @@ namespace BookLendingApp.Application.Member
             var existingMember = _memberService.GetMemberById(memberId);
             if (existingMember == null)
             {
-                Console.WriteLine("Member not found.");
+                ConsoleUi.WriteError("Member not found.");
                 return;
             }
 
-            Console.WriteLine($"Current values: Name={existingMember.FullName}, Email={existingMember.EmailId}, Mobile={existingMember.MobileNumber}, MembershipId={existingMember.MembershipId}, Active={existingMember.IsActive}");
+            ConsoleUi.WriteInfo($"Current values: Name={existingMember.FullName}, Email={existingMember.EmailId}, Mobile={existingMember.MobileNumber}, MembershipId={existingMember.MembershipId}, Active={existingMember.IsActive}");
 
             var fullName = ConsoleInputValidator.ReadRequiredStringWithDefault("Enter full name", existingMember.FullName);
             var email = ConsoleInputValidator.ReadEmailWithDefault("Enter email", existingMember.EmailId);
@@ -137,11 +147,13 @@ namespace BookLendingApp.Application.Member
             try
             {
                 _memberService.UpdateMember(memberId, fullName, email, password, membershipId, isActive, mobile);
-                Console.WriteLine("Member updated.");
+                ConsoleUi.WriteSuccess("Member updated.");
+                ConsoleUi.Pause();
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Error updating member: {ex.Message}");
+                ConsoleUi.WriteError($"Error updating member: {ex.Message}");
+                ConsoleUi.Pause();
             }
         }
 
@@ -152,21 +164,32 @@ namespace BookLendingApp.Application.Member
             try
             {
                 _memberService.RemoveMember(memberId);
-                Console.WriteLine("Member deleted.");
+                ConsoleUi.WriteSuccess("Member deleted.");
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Error deleting member: {ex.Message}");
+                ConsoleUi.WriteError($"Cannot delete member: {ex.Message}");
+                ConsoleUi.WriteInfo("Note: Ensure the member has no active borrows, pending fines, or history.");
             }
+            ConsoleUi.Pause();
         }
 
         private void ViewActiveMembers()
         {
             var members = _memberService.GetActiveMembers();
+            if (members == null || members.Count == 0)
+            {
+                ConsoleUi.WriteInfo("No active members found.");
+                ConsoleUi.Pause();
+                return;
+            }
+            var rows = new System.Collections.Generic.List<string>();
             foreach (var member in members)
             {
-                Console.WriteLine($"ID: {member.MemberId} | Name: {member.FullName} | Email: {member.EmailId}");
+                rows.Add($"ID: {member.MemberId} | Name: {member.FullName} | Email: {member.EmailId}");
             }
+            ConsoleUi.WriteTable(rows);
+            ConsoleUi.Pause();
         }
 
         private void UpdateMembership()
@@ -177,15 +200,16 @@ namespace BookLendingApp.Application.Member
             var member = _memberService.GetMemberById(memberId);
             if (member == null)
             {
-                Console.WriteLine("Member not found.");
+                ConsoleUi.WriteError("Member not found.");
                 return;
             }
 
-            Console.WriteLine($"Current MembershipId: {member.MembershipId}");
+            ConsoleUi.WriteInfo($"Current MembershipId: {member.MembershipId}");
 
             if (!ConsoleInputValidator.ReadYesNo("Change membership?", defaultValue: false))
             {
-                Console.WriteLine("No changes made.");
+                ConsoleUi.WriteInfo("No changes made.");
+                ConsoleUi.Pause();
                 return;
             }
 
@@ -196,7 +220,8 @@ namespace BookLendingApp.Application.Member
             }
 
             var ok = _memberService.UpdateMembership(memberId, membershipId.ToString());
-            Console.WriteLine(ok ? "Membership updated." : "Membership update failed.");
+            ConsoleUi.WriteInfo(ok ? "Membership updated." : "Membership update failed.");
+            ConsoleUi.Pause();
         }
 
         private void UpdateStatus()
@@ -210,13 +235,14 @@ namespace BookLendingApp.Application.Member
             var member = _memberService.GetMemberById(memberId);
             if (member == null)
             {
-                Console.WriteLine("Member not found.");
+                ConsoleUi.WriteError("Member not found.");
                 return;
             }
 
             var isActive = ConsoleInputValidator.ReadYesNo($"Set member as active? Current is {(member.IsActive ? "Yes" : "No")}", defaultValue: member.IsActive);
             var ok = _memberService.UpdateStatus(memberId, isActive);
-            Console.WriteLine(ok ? "Status updated." : "Status update failed.");
+            ConsoleUi.WriteInfo(ok ? "Status updated." : "Status update failed.");
+            ConsoleUi.Pause();
         }
 
         private void SearchByEmail()
@@ -227,15 +253,17 @@ namespace BookLendingApp.Application.Member
                 var member = _memberService.GetMemberByEmail(email);
                 if (member == null)
                 {
-                    Console.WriteLine("No member found with that email.");
+                    ConsoleUi.WriteInfo("No member found with that email.");
+                    ConsoleUi.Pause();
                     return;
                 }
 
-                Console.WriteLine($"ID: {member.MemberId} | Name: {member.FullName} | Email: {member.EmailId}");
+                ConsoleUi.WriteInfo($"ID: {member.MemberId} | Name: {member.FullName} | Email: {member.EmailId}");
+                ConsoleUi.Pause();
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Error: {ex.Message}");
+                ConsoleUi.WriteError($"Error: {ex.Message}");
             }
         }
 
@@ -247,15 +275,17 @@ namespace BookLendingApp.Application.Member
                 var member = _memberService.GetMemberByPhone(phone);
                 if (member == null)
                 {
-                    Console.WriteLine("No member found with that phone.");
+                    ConsoleUi.WriteInfo("No member found with that phone.");
+                    ConsoleUi.Pause();
                     return;
                 }
 
-                Console.WriteLine($"ID: {member.MemberId} | Name: {member.FullName} | Phone: {member.MobileNumber}");
+                ConsoleUi.WriteInfo($"ID: {member.MemberId} | Name: {member.FullName} | Phone: {member.MobileNumber}");
+                ConsoleUi.Pause();
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Error: {ex.Message}");
+                ConsoleUi.WriteError($"Error: {ex.Message}");
             }
         }
 
@@ -264,14 +294,15 @@ namespace BookLendingApp.Application.Member
             var memberships = _membershipService.GetAllMemberships();
             if (memberships.Count == 0)
             {
-                Console.WriteLine("No membership types found. Create one first.");
+                ConsoleUi.WriteInfo("No membership types found. Create one first.");
+                ConsoleUi.Pause();
                 return Guid.Empty;
             }
 
             var selectedMembership = ConsoleInputValidator.PromptSelection(
                 "Choose a membership type:",
                 memberships,
-                membership => $"{membership.Name} | Books: {membership.MaxBooksAllowed} | Days: {membership.MaxBorrowDurationDays} | Renewal: {(membership.IsRenewalAllowed ? "Yes" : "No")}");
+                membership => $"Name: {membership.Name} | Books: {membership.MaxBooksAllowed} | Days: {membership.MaxBorrowDurationDays} | Renewal: {(membership.IsRenewalAllowed ? "Yes" : "No")}");
 
             return selectedMembership.MemberShipId;
         }
@@ -281,14 +312,15 @@ namespace BookLendingApp.Application.Member
             var members = _memberService.GetAllMembers();
             if (members.Count == 0)
             {
-                Console.WriteLine("No members found. Add a member first.");
+                ConsoleUi.WriteInfo("No members found. Add a member first.");
+                ConsoleUi.Pause();
                 return Guid.Empty;
             }
 
             var selected = ConsoleInputValidator.PromptSelection(
                 "Select a member:",
                 members,
-                m => $"{m.FullName} | {m.EmailId} | Active: {m.IsActive}");
+                m => $"Name: {m.FullName} | Email: {m.EmailId} | Active: {m.IsActive}");
 
             return selected.MemberId;
         }
